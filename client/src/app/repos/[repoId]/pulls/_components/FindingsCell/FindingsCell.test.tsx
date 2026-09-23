@@ -41,7 +41,7 @@ describe("FindingsCell", () => {
   it("opens a preview on hover, headed with the run's full count (AC-4)", () => {
     renderWithIntl(<FindingsCell findings={FINDINGS} />);
     fireEvent.mouseEnter(screen.getByTestId("findings-cell"));
-    expect(screen.getByText("3 FINDINGS IN THIS RUN")).toBeInTheDocument();
+    expect(screen.getByText("3 FINDINGS")).toBeInTheDocument();
     expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
     expect(screen.getByText("src/config.ts:12")).toBeInTheDocument();
     expect(screen.getByText("98% conf")).toBeInTheDocument();

@@ -96,7 +96,7 @@
       "cost": "Cost",
       "updated": "Updated"
     },
-    "findingsInRun": "{count} FINDINGS IN THIS RUN",
+    "findingsHeading": "{count} FINDINGS",
     "filesCount": "{count} files",
     "errorTitle": "Couldn’t load pull requests",
     "errorBody": "The engine returned an error.",

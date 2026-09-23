@@ -62,7 +62,7 @@ export function FindingsCell({ findings }: { findings?: PrFindings | null }) {
   }
 
   const present = SEVERITIES.filter((l) => (findings.counts[l] ?? 0) > 0);
-  const heading = t("list.findingsInRun", { count: findings.total });
+  const heading = t("list.findingsHeading", { count: findings.total });
   const flipped = placement !== null && "bottom" in placement;
 
   return (
