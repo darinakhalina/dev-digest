@@ -14,6 +14,9 @@ Fastify API and host of the review engine. The root `CLAUDE.md` applies; this ad
 - Changing anything about what a run returns, stores or costs → read
   `specs/2026-09-22-review-run-contract.md` first: it states which of those are promises to the
   caller, and which of them no test currently protects
+- Changing what the pull-request list reports about reviews, findings, score or cost → read
+  `../specs/2026-09-23-pr-list-findings-per-agent.md`: the three columns aggregate over three
+  different things, and it says which and why
 - Something surprised you, or a fix was not obvious → `INSIGHTS.md`, through the
   `engineering-insights` skill, which carries the format and the rules
 - Need depth the README does not give → `docs/`
