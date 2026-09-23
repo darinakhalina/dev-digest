@@ -61,7 +61,7 @@ d('PR list FINDINGS column (Testcontainers pg)', () => {
     return { repo: repo!, pr: pr! };
   }
 
-  async function doneReview(prId: string, score: number) {
+  async function doneReview(prId: string, score: number, agentId?: string) {
     const db = pg.handle.db;
     const [run] = await db
       .insert(t.agentRuns)
@@ -69,7 +69,15 @@ d('PR list FINDINGS column (Testcontainers pg)', () => {
       .returning();
     const [review] = await db
       .insert(t.reviews)
-      .values({ workspaceId, prId, runId: run!.id, kind: 'review', verdict: 'approve', score })
+      .values({
+        workspaceId,
+        prId,
+        runId: run!.id,
+        kind: 'review',
+        verdict: 'approve',
+        score,
+        ...(agentId ? { agentId } : {}),
+      })
       .returning();
     return review!;
   }
@@ -186,6 +194,95 @@ d('PR list FINDINGS column (Testcontainers pg)', () => {
     const description = row.findings?.previews[0]?.description ?? '';
     expect(description).toHaveLength(161);
     expect(description.endsWith('…')).toBe(true);
+
+    await server.close();
+  });
+
+  it("counts each agent's latest review, not just the newest review of the PR", async () => {
+    const server = await app();
+    const { repo, pr } = await seedRepoWithPr();
+    const security = crypto.randomUUID();
+    const performance = crypto.randomUUID();
+    const first = await doneReview(pr.id, 40, security);
+    await addFinding(first.id, { severity: 'CRITICAL' });
+    const second = await doneReview(pr.id, 70, performance);
+    await addFinding(second.id, { severity: 'WARNING' });
+    await addFinding(second.id, { severity: 'SUGGESTION' });
+
+    const row = await findingsRow(server, repo.id, pr.id);
+    expect(row.findings?.counts).toEqual({ CRITICAL: 1, WARNING: 1, SUGGESTION: 1 });
+    expect(row.findings?.total).toBe(3);
+
+    await server.close();
+  });
+
+  it("ignores an agent's earlier review once that same agent has run again", async () => {
+    const server = await app();
+    const { repo, pr } = await seedRepoWithPr();
+    const security = crypto.randomUUID();
+    const performance = crypto.randomUUID();
+    const stale = await doneReview(pr.id, 10, security);
+    await addFinding(stale.id, { severity: 'CRITICAL' });
+    await addFinding(stale.id, { severity: 'CRITICAL' });
+    const other = await doneReview(pr.id, 60, performance);
+    await addFinding(other.id, { severity: 'WARNING' });
+    const fresh = await doneReview(pr.id, 80, security);
+    await addFinding(fresh.id, { severity: 'SUGGESTION' });
+
+    const row = await findingsRow(server, repo.id, pr.id);
+    expect(row.findings?.counts).toEqual({ WARNING: 1, SUGGESTION: 1 });
+    expect(row.findings?.total).toBe(2);
+
+    await server.close();
+  });
+
+  it('counts reviews that record no agent as one further source', async () => {
+    const server = await app();
+    const { repo, pr } = await seedRepoWithPr();
+    const security = crypto.randomUUID();
+    const unattributed = await doneReview(pr.id, 30);
+    await addFinding(unattributed.id, { severity: 'CRITICAL' });
+    const attributed = await doneReview(pr.id, 90, security);
+    await addFinding(attributed.id, { severity: 'SUGGESTION' });
+
+    const row = await findingsRow(server, repo.id, pr.id);
+    expect(row.findings?.counts).toEqual({ CRITICAL: 1, SUGGESTION: 1 });
+    expect(row.findings?.total).toBe(2);
+
+    await server.close();
+  });
+
+  it('orders previews the same way every time, including for equal severity and confidence', async () => {
+    const server = await app();
+    const { repo, pr } = await seedRepoWithPr();
+    const security = crypto.randomUUID();
+    const general = crypto.randomUUID();
+    const one = await doneReview(pr.id, 20, security);
+    await addFinding(one.id, {
+      severity: 'CRITICAL',
+      confidence: 1,
+      file: 'src/exports.ts',
+      startLine: 12,
+      title: 'Hardcoded signing secret in source code',
+    });
+    const two = await doneReview(pr.id, 20, general);
+    await addFinding(two.id, {
+      severity: 'CRITICAL',
+      confidence: 1,
+      file: 'src/exports.ts',
+      startLine: 12,
+      title: 'Bespoke signature scheme is not cryptographic',
+    });
+
+    const first = await findingsRow(server, repo.id, pr.id);
+    const again = await findingsRow(server, repo.id, pr.id);
+    expect(first.findings?.previews.map((p) => p.title)).toEqual([
+      'Bespoke signature scheme is not cryptographic',
+      'Hardcoded signing secret in source code',
+    ]);
+    expect(again.findings?.previews.map((p) => p.title)).toEqual(
+      first.findings?.previews.map((p) => p.title),
+    );
 
     await server.close();
   });

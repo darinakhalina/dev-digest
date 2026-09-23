@@ -5,6 +5,7 @@
 | **Spec ID** | SPEC-2026-09-21-pr-list-findings-column |
 | **Status** | approved |
 | **Supersedes** | none |
+| **Superseded in part** | SPEC-2026-09-23-pr-list-findings-per-agent — the *Which run* section and AC-1, AC-2, AC-4, AC-7 |
 
 ## Problem & why
 
