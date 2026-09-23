@@ -199,10 +199,17 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         const counts: Record<string, number> = {};
         for (const row of findingsForPr) counts[row.severity] = (counts[row.severity] ?? 0) + 1;
         const previews = [...findingsForPr]
+          // File, line and title break the ties severity and confidence leave.
+          // Without them the order is the storage order, which is not guaranteed
+          // — one list now holds several agents' findings, so ties are common and
+          // the panel reshuffles between loads.
           .sort(
             (a, b) =>
               (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) ||
-              b.confidence - a.confidence,
+              b.confidence - a.confidence ||
+              a.file.localeCompare(b.file) ||
+              a.startLine - b.startLine ||
+              a.title.localeCompare(b.title),
           )
           .map((row) => ({
             severity: row.severity as Severity,

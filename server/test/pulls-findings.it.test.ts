@@ -251,4 +251,39 @@ d('PR list FINDINGS column (Testcontainers pg)', () => {
 
     await server.close();
   });
+
+  it('orders previews the same way every time, including for equal severity and confidence', async () => {
+    const server = await app();
+    const { repo, pr } = await seedRepoWithPr();
+    const security = crypto.randomUUID();
+    const general = crypto.randomUUID();
+    const one = await doneReview(pr.id, 20, security);
+    await addFinding(one.id, {
+      severity: 'CRITICAL',
+      confidence: 1,
+      file: 'src/exports.ts',
+      startLine: 12,
+      title: 'Hardcoded signing secret in source code',
+    });
+    const two = await doneReview(pr.id, 20, general);
+    await addFinding(two.id, {
+      severity: 'CRITICAL',
+      confidence: 1,
+      file: 'src/exports.ts',
+      startLine: 12,
+      title: 'Bespoke signature scheme is not cryptographic',
+    });
+
+    const first = await findingsRow(server, repo.id, pr.id);
+    const again = await findingsRow(server, repo.id, pr.id);
+    expect(first.findings?.previews.map((p) => p.title)).toEqual([
+      'Bespoke signature scheme is not cryptographic',
+      'Hardcoded signing secret in source code',
+    ]);
+    expect(again.findings?.previews.map((p) => p.title)).toEqual(
+      first.findings?.previews.map((p) => p.title),
+    );
+
+    await server.close();
+  });
 });
