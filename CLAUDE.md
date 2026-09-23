@@ -24,6 +24,8 @@ published modules.
 - `server/src/modules/repo-intel/` — codebase indexer; reach it only through `container.repoIntel.*`
 - `docs/agent-prompts/` — canonical reviewer system prompts (the DB is the source of truth at run time)
 - `.claude/skills/` — per-stack skills plus this repo's own `engineering-insights`; the catalog is `.claude/skills/README.md`
+- `specs/` — one per package for a feature confined to it, plus a root `specs/` for features that
+  span two or more. Written before the code; `specs/README.md` carries the format
 - `INSIGHTS.md` — one per area: the four packages, plus `.claude/INSIGHTS.md` for the agent setup itself
 
 ## Commands
@@ -35,7 +37,11 @@ cd <pkg> && pnpm typecheck && pnpm test          # server · client · reviewer-
 ./scripts/e2e.sh                    # isolated seeded stack on :5433 / :3101 / :3100
 ```
 
-There is no lint step — `typecheck` is the gate. Package-specific commands (migrations, the
+There is no lint step, and `typecheck` alone is **not** enough: all four packages set
+`moduleResolution: "Bundler"`, so `tsc` never checks that a specifier resolves the way the runtime
+will. A wrong relative-import extension type-checks green and then fails — in `client` at bundle
+time, elsewhere at run time, and only on a path some test actually walks. Run the package's build
+or its app, not just `typecheck`. Package-specific commands (migrations, the
 unit/integration split) are in that package's `CLAUDE.md`.
 
 ## Naming conventions (non-default only)
@@ -57,11 +63,16 @@ unit/integration split) are in that package's `CLAUDE.md`.
 ## Gotchas
 
 - The two `vendor/shared` copies are not synced and **already differ in code** — check both before
-  trusting a type.
+  trusting a type. And two is not always the whole count: `@devdigest/ui` restates some of the same
+  unions by hand in `client/src/vendor/ui/primitives/tokens.ts`, where `Severity` already carries a
+  level the contract does not. A value the UI and the contract must agree on lives in three places,
+  not two.
 - Response shape is enforced by JSON Schema (`strict`) out of band — never describe fields or
   layout inside an agent's system prompt.
-- A finding citing no real diff line is dropped and the score is recomputed — the model's own score
-  is ignored.
+- A finding whose file is absent from the diff is dropped, and so is one whose lines miss every
+  hunk — except for the four whole-file kinds (`secret_leak`, `lethal_trifecta`, `phantom`, `hook`),
+  which only need the file to be present. The score is then recomputed from what survived; the
+  model's own score is ignored.
 - Secrets go through `SecretsProvider` into `~/.devdigest/secrets.json` (mode 0600), `.env` as
   fallback. Never git, never the DB.
 

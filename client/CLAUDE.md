@@ -5,8 +5,14 @@ Next.js 15 studio UI. The root `CLAUDE.md` applies; this adds client-only rules.
 ## Use when
 
 - Adding a page or a hook, or wiring to the API → read `README.md` (route map → hooks → `api.ts`)
+- Moving the Server/Client boundary, adding a query key or an invalidation, touching the live-run
+  stream, or importing a contract as a value → read `docs/01-ui-architecture.md`
 - Adding or changing a UI component → read `src/vendor/ui/README.md`, then add it to `/showcase`
-- Implementing a feature → read its spec in `specs/`; write one first if it is missing
+- Implementing a feature → read its spec in `specs/`; write one first if it is missing. A feature
+  that also needs the server goes in the repository-root `specs/` instead
+- Changing how findings are counted, filtered or previewed on a PR page → read
+  `specs/2026-09-21-findings-severity-filter.md` first: it states which of that behaviour is a
+  promise and how each promise is checked
 - Something surprised you, or a fix was not obvious → `INSIGHTS.md`, through the
   `engineering-insights` skill, which carries the format and the rules
 - Need depth the README does not give → `docs/`
@@ -22,7 +28,9 @@ Next.js 15 studio UI. The root `CLAUDE.md` applies; this adds client-only rules.
   Colors come from CSS variables, never hard-coded.
 - User-facing strings live in `messages/en/<area>.json` (next-intl), not inline in JSX.
 - Contracts come from `src/vendor/shared`, which can lag the server's copy. When a type looks wrong,
-  diff it against `server/src/vendor/shared`.
+  diff it against `server/src/vendor/shared`. Values (Zod schemas, not just types) import from the
+  same barrel and bundle correctly only because `next.config.mjs` sets `resolve.extensionAlias` —
+  the vendored files carry the server's `.js` specifiers. Do not remove it.
 
 ## Commands (client-only)
 
@@ -30,6 +38,16 @@ Next.js 15 studio UI. The root `CLAUDE.md` applies; this adds client-only rules.
 pnpm dev          # :3000
 pnpm test         # vitest + jsdom, fetch mocked — needs neither API nor browser
 pnpm typecheck
+pnpm build        # the only check that exercises the bundler — see below
 ```
+
+`typecheck` and `test` both resolve a `./x.js` specifier to `x.ts` themselves; the bundler does
+not. A broken import therefore stays green in both and fails only in `pnpm build` or `pnpm dev`.
+Run one of those before calling client work done.
+
+**Stop `pnpm dev` before `pnpm build`.** They share `.next`, so a build run against a live dev
+server overwrites its chunks and the page then dies with `Cannot find module
+'./vendor-chunks/…'` — an error that names a dependency and says nothing about the cause.
+Recover by deleting `.next` and starting `dev` again.
 
 Env: `NEXT_PUBLIC_API_BASE` (default `http://localhost:3001`).

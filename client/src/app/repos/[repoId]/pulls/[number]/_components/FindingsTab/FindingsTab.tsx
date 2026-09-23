@@ -5,9 +5,14 @@ import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { countsBySeverity } from "../FindingsPanel/helpers";
+import { SEVERITY_ORDER } from "../FindingsPanel/constants";
+import type { FindingPreviewItem } from "@/components/finding-preview";
 import { s } from "./styles";
 import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
+
+const DESCRIPTION_LIMIT = 160;
 
 interface FindingsTabProps {
   prId: string | null;
@@ -71,6 +76,42 @@ export function FindingsTab({
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
 
+  // The tiles and the run cards describe the same runs, so the breakdown is
+  // derived from the reviews already loaded rather than asked of the server.
+  const severityByRun = React.useMemo(() => {
+    const out: Record<string, Record<string, number>> = {};
+    for (const review of runs) {
+      if (review.run_id) out[review.run_id] = countsBySeverity(review.findings);
+    }
+    return out;
+  }, [runs]);
+
+  const previewsByRun = React.useMemo(() => {
+    const out: Record<string, FindingPreviewItem[]> = {};
+    for (const review of runs) {
+      if (!review.run_id) continue;
+      out[review.run_id] = [...review.findings]
+        .sort(
+          (a, b) =>
+            (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9) ||
+            b.confidence - a.confidence,
+        )
+        .map((f) => ({
+          severity: f.severity,
+          title: f.title,
+          category: f.category,
+          file: f.file,
+          line: f.start_line,
+          confidence: f.confidence,
+          description:
+            f.rationale.length > DESCRIPTION_LIMIT
+              ? `${f.rationale.slice(0, DESCRIPTION_LIMIT)}…`
+              : f.rationale,
+        }));
+    }
+    return out;
+  }, [runs]);
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -131,6 +172,8 @@ export function FindingsTab({
           <RunHistory
             runs={prRuns ?? []}
             commits={prCommits}
+            severityByRun={severityByRun}
+            previewsByRun={previewsByRun}
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}

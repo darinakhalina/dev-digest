@@ -2,9 +2,11 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
+import { Badge, Icon, CircularScore, SeverityBadge, type IconName } from "@devdigest/ui";
 import type { RunSummary, PrCommit } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/run-cost-badge";
+import { SEVERITIES } from "@/lib/severity";
+import { FindingPreviewPanel, type FindingPreviewItem } from "@/components/finding-preview";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -88,12 +90,16 @@ function tsOf(s: string | null | undefined): number {
 export function RunHistory({
   runs,
   commits = [],
+  severityByRun,
+  previewsByRun,
   onOpenTrace,
   onGoToReview,
   onDelete,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
+  severityByRun?: Record<string, Record<string, number>>;
+  previewsByRun?: Record<string, FindingPreviewItem[]>;
   /** Open the trace + log drawer for a run (the logs icon). */
   onOpenTrace: (runId: string) => void;
   /** Jump to this run's inline review accordion below (clicking the agent name). */
@@ -101,6 +107,10 @@ export function RunHistory({
   onDelete?: (runId: string) => void;
 }) {
   const t = useTranslations("prReview");
+  // Pointer and keyboard open the panel independently, so they cannot share one
+  // slot: leaving with the pointer must not close a panel focus is holding open.
+  const [hoveredRunId, setHoveredRunId] = React.useState<string | null>(null);
+  const [focusedRunId, setFocusedRunId] = React.useState<string | null>(null);
   if (runs.length === 0 && commits.length === 0) return null;
 
   const items: TimelineItem[] = [
@@ -150,6 +160,11 @@ export function RunHistory({
         const r = item.run;
         const o = outcomeOf(r);
         const settled = r.status === "done";
+        const counts = severityByRun?.[r.run_id];
+        const present = counts ? SEVERITIES.filter((l) => (counts[l] ?? 0) > 0) : [];
+        const previews = previewsByRun?.[r.run_id] ?? [];
+        const pointable = previews.length > 0;
+        const previewOpen = hoveredRunId === r.run_id || focusedRunId === r.run_id;
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
             <Badge color={o.color} bg={o.bg} icon={o.icon}>
@@ -189,12 +204,58 @@ export function RunHistory({
                   {r.error}
                 </div>
               )}
-              {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
-                  {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
-                </div>
-              )}
+              {settled &&
+                (present.length > 0 ? (
+                  <div
+                    style={{ position: "relative", display: "inline-flex", alignSelf: "flex-start" }}
+                    onMouseEnter={pointable ? () => setHoveredRunId(r.run_id) : undefined}
+                    onMouseLeave={pointable ? () => setHoveredRunId(null) : undefined}
+                  >
+                    <div
+                      data-testid={`tile-severity-${r.run_id}`}
+                      tabIndex={pointable ? 0 : undefined}
+                      onFocus={pointable ? () => setFocusedRunId(r.run_id) : undefined}
+                      onBlur={pointable ? () => setFocusedRunId(null) : undefined}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Escape") return;
+                        setHoveredRunId(null);
+                        setFocusedRunId(null);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flexWrap: "wrap",
+                        cursor: pointable ? "help" : "default",
+                        borderBottomWidth: pointable ? 1 : 0,
+                        borderBottomStyle: "dotted",
+                        borderBottomColor: "var(--text-muted)",
+                      }}
+                    >
+                      {present.map((l) => (
+                        <SeverityBadge key={l} severity={l} count={counts?.[l]} compact />
+                      ))}
+                      {(r.blockers ?? 0) > 0 && (
+                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                          {t("runStatus.blockers", { count: r.blockers ?? 0 })}
+                        </span>
+                      )}
+                    </div>
+                    {pointable && previewOpen && (
+                      <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 30 }}>
+                        <FindingPreviewPanel
+                          heading={t("timeline.findingsHeading", { count: previews.length })}
+                          items={previews}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                    {t("runStatus.findings", { count: r.findings_count ?? 0 })}
+                    {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
+                  </div>
+                ))}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
               {r.ran_at && <span>{new Date(r.ran_at).toLocaleTimeString()}</span>}

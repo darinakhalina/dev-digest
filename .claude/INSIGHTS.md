@@ -10,15 +10,18 @@ the section rules and the quality bar.
 
 ## What Works
 
-**2026-09-18** (refined 2026-09-19) — Skill descriptions in this repo are written in English while
-the work is requested in Russian, and auto-triggering still fires: the anchor that matches is the
-path name (`server/`, `client/`), which carries across languages. Confirmed by a Russian request
-loading `engineering-insights` with no slash command, and by a rename request correctly not loading
-it. Anchor a new skill's description on paths and filenames rather than on words that have to be
-translated. The boundary: a path anchor only fires while the user is still naming paths. Through a
-multi-turn feature ("make the feature", "check it", "carry on") no message contained one, and the
-skill stayed silent for the whole task — it has to be invoked by hand once a session moves past its
-opening request. Evidence: .claude/skills/engineering-insights/SKILL.md:3
+**2026-09-22** — Reading past findings is made deterministic by injection, not by instruction:
+`SKILL.md:22` carries `` !`cat */INSIGHTS.md .claude/INSIGHTS.md` ``, which runs before the model
+sees the skill body, so the files arrive as context rather than as a request the model may skip.
+That is why a session can name which entries bear on its task before touching anything.
+
+The cost is that the line must stay ONE literal command. The permission check rejects brace
+expansion, `$VAR`, `||` and redirection, so it cannot be made defensive — no fallback, no
+alternative path. Two consequences to plan around: the glob `*/INSIGHTS.md` only reaches files one
+level deep, so a package nested deeper would be silently skipped; and the `.claude/` path is
+spelled out because the glob does not match a dot-directory. Adding a fifth area means editing this
+line by hand, and nothing will complain if you forget — the skill will simply read four files and
+say nothing about the fifth. Evidence: .claude/skills/engineering-insights/SKILL.md:22
 
 ## What Doesn't Work
 
@@ -29,5 +32,14 @@ opening request. Evidence: .claude/skills/engineering-insights/SKILL.md:3
 ## Recurring Errors & Fixes
 
 ## Session Notes
+
+**2026-09-21** — "The skill fires without an explicit request" (criterion 9) has two distinct
+satisfying mechanisms, not one: the skill description matching the request's own wording, and the
+root `CLAUDE.md` session-protocol section, which told this session to invoke
+`engineering-insights` by hand at the start of package work. Both count toward the
+criterion — it is worded around the absence of a user request for the skill, not around which
+mechanism raised it — but only the first is evidence of description-based auto-triggering. When
+reporting which one fired, name the mechanism rather than calling a CLAUDE.md-driven invocation an
+invalid measurement. Evidence: CLAUDE.md (## Session protocol).
 
 ## Open Questions
