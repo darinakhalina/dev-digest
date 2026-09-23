@@ -119,36 +119,58 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-review SCORE and its per-severity FINDINGS breakdown, both computed
-    // on read. The breakdown used to be deliberately absent here; it is now shown
-    // in full — see PrFindings.
+    // Latest-review SCORE, and the FINDINGS breakdown of every agent's latest
+    // completed review. Both computed on read.
+    //
+    // The score stays one review's; the findings do not. A "Review all" fans out
+    // one review per enabled agent, so reading a single review reports whichever
+    // agent finished last and silently drops the rest — see
+    // specs/2026-09-23-pr-list-findings-per-agent.md.
     const prIds = rows.map((r) => r.id);
     const latestReviewByPr = new Map<string, { id: string; score: number | null }>();
+    /** prId → the review ids counted for it: each agent's latest, plus the latest
+     *  of the reviews that record no agent at all, which form one further bucket. */
+    const countedReviewsByPr = new Map<string, string[]>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ id: t.reviews.id, prId: t.reviews.prId, score: t.reviews.score })
+        .select({
+          id: t.reviews.id,
+          prId: t.reviews.prId,
+          agentId: t.reviews.agentId,
+          score: t.reviews.score,
+        })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
-      // Rows are newest-first → first seen per PR is the latest review.
+      // Rows are newest-first → the first row seen for a key is that key's latest.
+      const seen = new Set<string>();
       for (const rv of reviewRows) {
         if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { id: rv.id, score: rv.score });
+        const key = `${rv.prId}:${rv.agentId ?? 'NULL'}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const bucket = countedReviewsByPr.get(rv.prId) ?? [];
+        bucket.push(rv.id);
+        countedReviewsByPr.set(rv.prId, bucket);
       }
     }
 
-    // FINDINGS column: every finding of that same latest review, previewed.
-    // One IN-query over the already-known review ids — never a query per row.
+    // FINDINGS column: every finding of the counted reviews, previewed.
+    // One IN-query over the already-known review ids — never a query per row,
+    // and never a query per agent.
     const DESCRIPTION_LIMIT = 160;
     const SEVERITY_RANK: Record<string, number> = { CRITICAL: 0, WARNING: 1, SUGGESTION: 2 };
 
     const findingsByPr = new Map<string, PrFindings>();
-    const latestReviewIds = [...latestReviewByPr.values()].map((r) => r.id);
-    if (latestReviewIds.length > 0) {
+    const countedReviewIds = [...countedReviewsByPr.values()].flat();
+    if (countedReviewIds.length > 0) {
       const reviewToPr = new Map<string, string>();
-      for (const [prId2, rv] of latestReviewByPr) reviewToPr.set(rv.id, prId2);
+      for (const [prId2, ids] of countedReviewsByPr) {
+        for (const id of ids) reviewToPr.set(id, prId2);
+      }
 
-      // Every finding the review produced, including ones already accepted or
-      // rejected: the heading describes the run, not the current triage state.
+      // Every finding those reviews produced, including ones already accepted or
+      // rejected: the heading describes the reviews, not the current triage state.
       const findingRows = await container.db
         .select({
           reviewId: t.findings.reviewId,
@@ -161,21 +183,22 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
           rationale: t.findings.rationale,
         })
         .from(t.findings)
-        .where(inArray(t.findings.reviewId, latestReviewIds));
+        .where(inArray(t.findings.reviewId, countedReviewIds));
 
-      const grouped = new Map<string, typeof findingRows>();
+      const groupedByPr = new Map<string, typeof findingRows>();
       for (const row of findingRows) {
-        const bucket = grouped.get(row.reviewId) ?? [];
+        const prId2 = reviewToPr.get(row.reviewId);
+        if (!prId2) continue;
+        const bucket = groupedByPr.get(prId2) ?? [];
         bucket.push(row);
-        grouped.set(row.reviewId, bucket);
+        groupedByPr.set(prId2, bucket);
       }
 
-      for (const [reviewId, findingsForReview] of grouped) {
-        const prId2 = reviewToPr.get(reviewId);
-        if (!prId2 || findingsForReview.length === 0) continue;
+      for (const [prId2, findingsForPr] of groupedByPr) {
+        if (findingsForPr.length === 0) continue;
         const counts: Record<string, number> = {};
-        for (const row of findingsForReview) counts[row.severity] = (counts[row.severity] ?? 0) + 1;
-        const previews = [...findingsForReview]
+        for (const row of findingsForPr) counts[row.severity] = (counts[row.severity] ?? 0) + 1;
+        const previews = [...findingsForPr]
           .sort(
             (a, b) =>
               (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) ||
@@ -193,7 +216,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
                 ? `${row.rationale.slice(0, DESCRIPTION_LIMIT)}…`
                 : row.rationale,
           }));
-        findingsByPr.set(prId2, { counts, total: findingsForReview.length, previews });
+        findingsByPr.set(prId2, { counts, total: findingsForPr.length, previews });
       }
     }
 
