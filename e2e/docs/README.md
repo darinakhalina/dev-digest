@@ -5,4 +5,4 @@ Deep-dives that do not fit `README.md`: longer explanations, decision notes, dia
 copy it.
 
 One topic per file, named `NN-kebab-topic.md`. If an agent should read a doc for a whole class of
-tasks, add a line to `../CLAUDE.md` § *Use when*.
+tasks, add a line to `../AGENTS.md` § *Use when*.

@@ -4,7 +4,7 @@ This package is defined more by what it cannot reach than by what it does.
 
 [`../README.md`](../README.md) is the map: the pipeline diagram and the public API list live there
 and are not repeated. This file explains the two constraints the root
-[`CLAUDE.md`](../../CLAUDE.md) states as rules — *openai + zod only, no DB, no GitHub, no FS* and
+[`AGENTS.md`](../../AGENTS.md) states as rules — *openai + zod only, no DB, no GitHub, no FS* and
 *ships TS source, never JS* — as the decisions they are, and what each one costs and pays for.
 
 ## One consumer today, two by design
@@ -180,6 +180,6 @@ maintaining it twice and discovering the divergence in production.
 | The pipeline at a glance and the exported API | [`../README.md`](../README.md) |
 | Which prompt slots the server fills, and what a run persists | [`../../server/docs/01-review-run.md`](../../server/docs/01-review-run.md) |
 | What an agent's system prompt should say; severity and verdict semantics | [`../../docs/agent-prompts/README.md`](../../docs/agent-prompts/README.md) |
-| The two drop reasons and the four exempt kinds, as a standing rule | root [`CLAUDE.md`](../../CLAUDE.md) § *Gotchas* |
+| The two drop reasons and the four exempt kinds, as a standing rule | root [`AGENTS.md`](../../AGENTS.md) § *Gotchas* |
 | How findings are rendered and triaged | [`../../client/docs/01-ui-architecture.md`](../../client/docs/01-ui-architecture.md) |
 | Repo-intel: how `repoMap` and `callers` are built before they arrive here | [`../../server/src/modules/repo-intel/README.md`](../../server/src/modules/repo-intel/README.md) |

@@ -1,6 +1,6 @@
 # Insights — harness
 
-Non-obvious findings about this repo's agent setup itself: skills, hooks, `CLAUDE.md` wiring,
+Non-obvious findings about this repo's agent setup itself: skills, hooks, `AGENTS.md` wiring,
 settings. Scoped to `.claude/` the way each package's file is scoped to its package — not a
 catch-all for findings that belong to `server/`, `client/`, `reviewer-core/` or `e2e/`, and not a
 place for Claude Code behaviour that is the same in every repository.
@@ -41,5 +41,16 @@ criterion — it is worded around the absence of a user request for the skill, n
 mechanism raised it — but only the first is evidence of description-based auto-triggering. When
 reporting which one fired, name the mechanism rather than calling a CLAUDE.md-driven invocation an
 invalid measurement. Evidence: CLAUDE.md (## Session protocol).
+
+**2026-09-24** — The five `CLAUDE.md` paths are symlinks to the `AGENTS.md` beside them, and the
+reason is not the one every migration guide gives. Claude Code has read `AGENTS.md` natively since
+v2.1.277 (this repo runs 2.1.281), and the official docs say an existing symlink can simply be
+deleted — so the shims look redundant. Here they are not: `.claude/skills/zod/AGENTS.md` is a
+vendored third-party file that is inert today only because a `CLAUDE.md` above it gates the whole
+`AGENTS.md` mechanism. Delete the shims and that file becomes eligible to load as directory
+instructions whenever anything under `.claude/skills/zod/` is opened, putting a zod rule index into
+context uninvited. Keep the symlinks while any vendored skill ships an `AGENTS.md` of its own, and
+check for new ones with `find .claude/skills -name AGENTS.md` before removing them.
+Evidence: .claude/skills/zod/AGENTS.md
 
 ## Open Questions

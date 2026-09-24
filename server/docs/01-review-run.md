@@ -60,11 +60,11 @@ is shown no section.
 
 **The consequence is the shape of what the reviewer can catch.** It is given the repository's
 *structure* — a ranked skeleton of symbols and the callers of what changed — and none of the
-repository's *rules*. It cannot flag a violation of a convention written in a `CLAUDE.md`, a spec
+repository's *rules*. It cannot flag a violation of a convention written in a `AGENTS.md`, a spec
 under `specs/`, or a curated memory item, because nobody shows it any of them. Findings that look
 like missing project knowledge are usually this, not a weak model. The slots are not a gap in the
 engine: `reviewer-core` accepts all nine and renders them correctly, and the wiring on the server
-side is what has not been built (see `reviewer-core/CLAUDE.md` § *Use when*).
+side is what has not been built (see `reviewer-core/AGENTS.md` § *Use when*).
 
 Two places record that emptiness, and they are recorded differently:
 
@@ -96,7 +96,7 @@ hunk's declared range when a hunk carries no explicit line numbers
 **Four kinds skip the line check.** `secret_leak`, `lethal_trifecta`, `phantom` and `hook` are
 whole-file scanners, so they are kept on the file being present in the diff, without their lines
 having to meet any hunk (`reviewer-core/src/grounding.ts:16` and `:66`). The root
-[`CLAUDE.md`](../../CLAUDE.md) states the rule in this two-part form deliberately: the shorter
+[`AGENTS.md`](../../AGENTS.md) states the rule in this two-part form deliberately: the shorter
 "a finding citing no real diff line is dropped" promised a guarantee the gate does not give, since a
 `secret_leak` pointing at an untouched line survives it.
 

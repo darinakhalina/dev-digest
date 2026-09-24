@@ -12,7 +12,7 @@ on what the description claims it does.
 
 # House rules of this codebase
 Structure is visible to you; these conventions are not. They are documented in the
-repo's own `server/CLAUDE.md`. A diff that breaks one is a defect — report it with the
+repo's own `server/AGENTS.md`. A diff that breaks one is a defect — report it with the
 consequence named, at the severity that consequence earns.
 
 - A route declares its Zod schema on the route itself (`schema: { body, params }`), so

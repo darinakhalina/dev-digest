@@ -44,7 +44,7 @@ URL. That is a real ceiling, and it is why the coverage table in the README is l
 ## The banned locator, and what banning it buys
 
 agent-browser also ships an AI locator — a `chat` command that finds an element by describing it.
-It is forbidden here (`e2e/CLAUDE.md:19-20`).
+It is forbidden here (`e2e/AGENTS.md` § *Rules not visible from any single file*).
 
 The rule is easy to read as caution about flakiness. The larger consequence is that **the suite has
 no API key and makes no model call**, and that is what lets it run in places a key-bearing suite
@@ -60,7 +60,8 @@ description. When a deterministic flow goes red, the app changed.
 ## No model anywhere, and the hole that leaves
 
 The no-model rule extends past the locators: the flows deliberately never trigger a review
-(`e2e/CLAUDE.md:21-22`). They read seeded rows that already contain a review and its findings —
+(`e2e/AGENTS.md` § *Rules not visible from any single file*). They read seeded rows that already
+contain a review and its findings —
 `server/src/db/seed.ts:135-150` inserts exactly that, "a sample review + findings so the PR shows
 results before the first run".
 

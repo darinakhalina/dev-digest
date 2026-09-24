@@ -101,7 +101,7 @@ which.
 | AC | Held up by | Strength |
 |---|---|---|
 | AC-1 | The command vocabulary in use is three verbs across every step of every flow, none of which reaches a model; no credential appears in the runner, in `scripts/e2e.sh`, or in the environment block of `.github/workflows/e2e-web.yml` | **Mechanical in CI** — a model-backed step would fail there for want of a key. Locally, nothing stops it |
-| AC-2 | A prose rule in `e2e/CLAUDE.md` | **Nothing mechanical.** A step's command is a list of strings passed through untouched by `e2e/run.ts`, so an AI-locator step would run wherever a key happens to exist |
+| AC-2 | A prose rule in `e2e/AGENTS.md` | **Nothing mechanical.** A step's command is a list of strings passed through untouched by `e2e/run.ts`, so an AI-locator step would run wherever a key happens to exist |
 | AC-3 | The runner has no database access of any kind — it drives a browser and nothing else; and `scripts/e2e.sh` exits rather than migrate a target that is not on the port it created | **Strong**, and the guard is explicit rather than incidental |
 | AC-4 | The isolated Postgres in `scripts/e2e.sh` is created without a persistent volume and is migrated and seeded on every run | **Strong** |
 | AC-5 | Follows from AC-1, AC-2 and AC-4 together | **Conditional** — see gaps; it does not hold against a developer's own stack, and a wall-clock step timeout can still fail a flow on a slow machine |
