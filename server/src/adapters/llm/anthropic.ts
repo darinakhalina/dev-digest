@@ -43,7 +43,7 @@ export class AnthropicProvider implements LLMProvider {
   private client: Anthropic;
 
   constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey });
+    this.client = new Anthropic({ apiKey, maxRetries: 0 });
   }
 
   async listModels(): Promise<ModelInfo[]> {

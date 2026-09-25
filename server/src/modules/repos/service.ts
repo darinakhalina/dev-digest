@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { Container } from '../../platform/container.js';
 import { type Repo } from '@devdigest/shared';
 import { NotFoundError } from '../../platform/errors.js';
@@ -19,12 +20,13 @@ import type { RepoAccess } from './types.js';
  */
 
 /** Payload enqueued for (and consumed by) the `clone` job. */
-export interface CloneJobPayload {
-  repoId: string;
-  owner: string;
-  name: string;
-  url: string;
-}
+export const CloneJobPayload = z.object({
+  repoId: z.string(),
+  owner: z.string(),
+  name: z.string(),
+  url: z.string(),
+});
+export type CloneJobPayload = z.infer<typeof CloneJobPayload>;
 
 export class RepoService implements RepoAccess {
   private repo: RepoRepository;
@@ -42,8 +44,8 @@ export class RepoService implements RepoAccess {
   }
 
   registerCloneJobHandler(): void {
-    this.container.jobs.register(CLONE_JOB_KIND, async (payload, { signal }) => {
-      await this.runCloneJob(payload as CloneJobPayload, signal);
+    this.container.jobs.register(CLONE_JOB_KIND, CloneJobPayload, async (payload, { signal }) => {
+      await this.runCloneJob(payload, signal);
     });
   }
 

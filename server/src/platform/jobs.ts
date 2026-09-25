@@ -1,19 +1,17 @@
 import PQueue from 'p-queue';
 import { eq, inArray } from 'drizzle-orm';
+import type { z } from 'zod';
 import type { Db } from '../db/client.js';
 import * as t from '../db/schema.js';
 import { withTimeout, withRetry } from './resilience.js';
 
-/**
- * JobRunner — async work (clone, PR import, indexing, polling) on a
- * concurrency-limited p-queue, mirrored into the `jobs` table with
- * timeouts + retry/backoff.
- *
- * Handlers are registered by kind. enqueue() inserts a `jobs` row, schedules
- * the handler on the queue, and updates status/attempts/error as it runs.
- */
 
-export type JobHandler = (payload: unknown, ctx: { jobId: string; signal: AbortSignal }) => Promise<void>;
+export type JobHandler<T> = (payload: T, ctx: { jobId: string; signal: AbortSignal }) => Promise<void>;
+
+interface RegisteredHandler {
+  schema: z.ZodType<unknown>;
+  handler: JobHandler<unknown>;
+}
 
 export interface JobRunnerOptions {
   concurrency?: number;
@@ -29,7 +27,7 @@ export interface EnqueuedJob {
 
 export class JobRunner {
   private queue: PQueue;
-  private handlers = new Map<string, JobHandler>();
+  private handlers = new Map<string, RegisteredHandler>();
   private timeoutMs: number;
   private retries: number;
 
@@ -42,17 +40,18 @@ export class JobRunner {
     this.retries = opts.retries ?? 2;
   }
 
-  register(kind: string, handler: JobHandler): void {
-    this.handlers.set(kind, handler);
+  register<T>(kind: string, schema: z.ZodType<T>, handler: JobHandler<T>): void {
+    this.handlers.set(kind, { schema, handler: handler as JobHandler<unknown> });
   }
 
   async enqueue(workspaceId: string, kind: string, payload: unknown): Promise<EnqueuedJob> {
-    const handler = this.handlers.get(kind);
-    if (!handler) throw new Error(`No job handler registered for kind '${kind}'`);
+    const registered = this.handlers.get(kind);
+    if (!registered) throw new Error(`No job handler registered for kind '${kind}'`);
+    const parsed = registered.schema.parse(payload);
 
     const [row] = await this.db
       .insert(t.jobs)
-      .values({ workspaceId, kind, payload: payload as object, status: 'queued' })
+      .values({ workspaceId, kind, payload: parsed as object, status: 'queued' })
       .returning({ id: t.jobs.id });
     const jobId = row!.id;
 
@@ -68,7 +67,10 @@ export class JobRunner {
             attempts += 1;
             const controller = new AbortController();
             try {
-              await withTimeout(handler(payload, { jobId, signal: controller.signal }), this.timeoutMs);
+              await withTimeout(
+                registered.handler(parsed, { jobId, signal: controller.signal }),
+                this.timeoutMs,
+              );
             } catch (err) {
               controller.abort(err);
               throw err;

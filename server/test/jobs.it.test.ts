@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { startPg, dockerAvailable, type PgFixture } from './helpers/pg.js';
 import { seed } from '../src/db/seed.js';
@@ -30,7 +31,7 @@ d('JobRunner — SPEC-2026-09-25-run-reliability', () => {
   it('records how many attempts a job took', async () => {
     const jobs = new JobRunner(pg.handle.db, { retries: 2 });
     let calls = 0;
-    jobs.register('flaky', async () => {
+    jobs.register('flaky', z.object({}), async () => {
       calls += 1;
       if (calls === 1) throw Object.assign(new Error('503'), { status: 503 });
     });
@@ -41,10 +42,18 @@ d('JobRunner — SPEC-2026-09-25-run-reliability', () => {
     expect(r.attempts).toBe(2);
   });
 
+  it('rejects a payload that fails its schema, before writing any row', async () => {
+    const jobs = new JobRunner(pg.handle.db);
+    jobs.register('typed', z.object({ repoId: z.string() }), async () => undefined);
+    await expect(jobs.enqueue(workspaceId, 'typed', { repoId: 42 })).rejects.toThrow();
+    const rows = await pg.handle.db.select().from(t.jobs).where(eq(t.jobs.kind, 'typed'));
+    expect(rows).toHaveLength(0);
+  });
+
   it('aborts the handler when the job times out', async () => {
     const jobs = new JobRunner(pg.handle.db, { timeoutMs: 50, retries: 0 });
     let aborted = false;
-    jobs.register('slow', (_payload, { signal }) => {
+    jobs.register('slow', z.object({}), (_payload, { signal }) => {
       signal.addEventListener('abort', () => {
         aborted = true;
       });

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 import { RunRequest } from '@devdigest/shared';
 import type { RunEvent } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
@@ -23,13 +24,15 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
 
   // ---- Run a review (manual trigger) -------------------------------
   // Tight per-route limit: each call can fan out to expensive LLM runs.
-  // Body stays a tolerant manual parse (both fields optional; empty body is OK).
   app.post(
     '/pulls/:id/review',
-    { schema: { params: IdParams }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    {
+      schema: { params: IdParams, body: z.preprocess((v) => v ?? {}, RunRequest) },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
     async (req) => {
     const { workspaceId } = await getContext(container, req);
-    const body = RunRequest.parse(req.body ?? {});
+    const body = req.body;
     const targets = await service.resolveTargets(workspaceId, {
       ...(body.agentId !== undefined ? { agentId: body.agentId } : {}),
       ...(body.all !== undefined ? { all: body.all } : {}),

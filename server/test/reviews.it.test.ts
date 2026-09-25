@@ -219,6 +219,17 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
+  it('accepts a request with no body at all, and rejects it with a clean 400 rather than crashing', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+
+    const res = await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review` });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('invalid_run_request');
+
+    await app.close();
+  });
+
   it('a failed run persists cost_usd = null (never 0), so the UI can show "—"', async () => {
     // A fixture that fails the Review schema makes the mock provider throw → run fails.
     const app = await appWith({ not: 'a review' });

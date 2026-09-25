@@ -52,7 +52,7 @@ import {
   RESYNC_JOB_KIND,
 } from './constants.js';
 import { SUPPORTED_EXT } from '../../adapters/codeindex/constants.js';
-import { runFullIndex, type IndexPayload } from './pipeline/full.js';
+import { runFullIndex, IndexPayload } from './pipeline/full.js';
 import { runIncremental } from './pipeline/incremental.js';
 
 /**
@@ -190,14 +190,14 @@ export class RepoIntelService implements RepoIntel {
    * `Promise<void>`. Status/progress is observable via `repo_index_state`.
    */
   registerIndexJobHandlers(): void {
-    this.container.jobs.register(INDEX_JOB_KIND, async (payload) => {
-      await this.indexRepo((payload as IndexPayload).repoId);
+    this.container.jobs.register(INDEX_JOB_KIND, IndexPayload, async (payload) => {
+      await this.indexRepo(payload.repoId);
     });
-    this.container.jobs.register(REFRESH_JOB_KIND, async (payload) => {
-      await this.refreshIndex((payload as IndexPayload).repoId);
+    this.container.jobs.register(REFRESH_JOB_KIND, IndexPayload, async (payload) => {
+      await this.refreshIndex(payload.repoId);
     });
-    this.container.jobs.register(RESYNC_JOB_KIND, async (payload) => {
-      await this.resyncRepo((payload as IndexPayload).repoId);
+    this.container.jobs.register(RESYNC_JOB_KIND, IndexPayload, async (payload) => {
+      await this.resyncRepo(payload.repoId);
     });
   }
 
