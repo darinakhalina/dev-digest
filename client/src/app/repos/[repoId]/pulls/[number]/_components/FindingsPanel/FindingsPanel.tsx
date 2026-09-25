@@ -11,6 +11,7 @@ import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
 import { KEY_TO_ACTION, SEVERITIES } from "./constants";
 import { countsBySeverity, visibleFindings } from "./helpers";
 import { s } from "./styles";
+import { hasModifier, isTextInput } from "@/lib/keyboard";
 
 export function FindingsPanel({
   findings,
@@ -54,20 +55,18 @@ export function FindingsPanel({
     setSeverities(new Set());
   }, [prId]);
 
-  // j/k navigation + a/d shortcuts on the focused finding (keyboard).
-  React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "j") setFocusIdx((i) => Math.min(i + 1, shown.length - 1));
-      else if (e.key === "k") setFocusIdx((i) => Math.max(i - 1, 0));
-      else if (KEY_TO_ACTION[e.key] && shown[focusIdx]) {
-        action.mutate({ findingId: shown[focusIdx]!.id, action: KEY_TO_ACTION[e.key]!, prId });
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [shown, focusIdx, action, prId]);
+  const current = Math.min(focusIdx, Math.max(shown.length - 1, 0));
+
+  const onListKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (hasModifier(e) || isTextInput(e.target)) return;
+    const act = KEY_TO_ACTION[e.key];
+    if (e.key === "j") setFocusIdx(Math.min(current + 1, shown.length - 1));
+    else if (e.key === "k") setFocusIdx(Math.max(current - 1, 0));
+    else if (act && shown[current]) action.mutate({ findingId: shown[current]!.id, action: act, prId });
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   return (
     <div>
@@ -101,7 +100,13 @@ export function FindingsPanel({
       </div>
 
 
-      <div style={s.list}>
+      <div
+        style={s.list}
+        role="list"
+        tabIndex={0}
+        aria-label={t("panel.listLabel")}
+        onKeyDown={onListKeyDown}
+      >
         {shown.length === 0 ? (
           <EmptyState icon="Filter" title={t("panel.noMatchTitle")} body={t("panel.noMatchBody")} />
         ) : (
@@ -109,7 +114,8 @@ export function FindingsPanel({
             <FindingCard
               key={f.id}
               f={f}
-              focused={i === focusIdx}
+              focused={i === current}
+              onSelect={() => setFocusIdx(i)}
               defaultExpanded={i === 0}
               pending={action.isPending}
               repoFullName={repoFullName}

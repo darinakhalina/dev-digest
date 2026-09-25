@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useRepos } from "../lib/hooks";
 import { AppShell } from "../components/app-shell";
 import { PageContainer } from "../components/page-shell";
-import { EmptyState, Button, Skeleton } from "@devdigest/ui";
+import { EmptyState, ErrorState, Button, Skeleton } from "@devdigest/ui";
 
 export default function HomePage() {
   const router = useRouter();
@@ -27,7 +27,13 @@ export default function HomePage() {
             <Skeleton height={48} />
             <Skeleton height={48} />
           </div>
-        ) : isError || !repos || repos.length === 0 ? (
+        ) : isError ? (
+          <ErrorState
+            title="Couldn't reach DevDigest"
+            body="The engine did not respond. Check that the API is running, then retry."
+            onRetry={() => window.location.reload()}
+          />
+        ) : !repos || repos.length === 0 ? (
           <EmptyState
             icon="GitBranch"
             title="No repositories yet"

@@ -23,20 +23,6 @@ export function ConfigTab({ agent }: { agent: Agent }) {
   const [strategy, setStrategy] = React.useState<ReviewStrategy>(agent.strategy);
   const [ciFailOn, setCiFailOn] = React.useState<CiFailOn>(agent.ci_fail_on);
   const [repoIntel, setRepoIntel] = React.useState(agent.repo_intel);
-  const [enabled, setEnabled] = React.useState(agent.enabled);
-
-  // Reset local form when switching agents.
-  React.useEffect(() => {
-    setName(agent.name);
-    setDescription(agent.description);
-    setProvider(agent.provider);
-    setModel(agent.model);
-    setSystemPrompt(agent.system_prompt);
-    setStrategy(agent.strategy);
-    setCiFailOn(agent.ci_fail_on);
-    setRepoIntel(agent.repo_intel);
-    setEnabled(agent.enabled);
-  }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: models } = useProviderModels(provider);
   // Show the price (USD per 1M in/out tokens) in the label when the provider
@@ -65,7 +51,6 @@ export function ConfigTab({ agent }: { agent: Agent }) {
           strategy,
           ci_fail_on: ciFailOn,
           repo_intel: repoIntel,
-          enabled,
         },
       },
       {
@@ -81,7 +66,11 @@ export function ConfigTab({ agent }: { agent: Agent }) {
         <h2 style={s.h2}>{t("config.title")}</h2>
         <label style={s.enabledLabel}>
           {t("config.enabled")}
-          <Toggle on={enabled} onChange={setEnabled} size={16} />
+          <Toggle
+            on={agent.enabled}
+            onChange={(v) => update.mutate({ id: agent.id, patch: { enabled: v } })}
+            size={16}
+          />
         </label>
       </div>
       <FormField label={t("config.name")} required>

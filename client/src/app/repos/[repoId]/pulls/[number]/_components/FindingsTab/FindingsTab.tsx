@@ -6,7 +6,7 @@ import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
 import { countsBySeverity } from "../FindingsPanel/helpers";
-import { SEVERITY_ORDER } from "../FindingsPanel/constants";
+import { compareFindings } from "@/lib/findings";
 import type { FindingPreviewItem } from "@/components/finding-preview";
 import { s } from "./styles";
 import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
@@ -91,11 +91,7 @@ export function FindingsTab({
     for (const review of runs) {
       if (!review.run_id) continue;
       out[review.run_id] = [...review.findings]
-        .sort(
-          (a, b) =>
-            (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9) ||
-            b.confidence - a.confidence,
-        )
+        .sort(compareFindings)
         .map((f) => ({
           severity: f.severity,
           title: f.title,
@@ -201,6 +197,7 @@ export function FindingsTab({
           <ReviewRunAccordion
             key={review.id}
             review={review}
+            blockers={prRuns?.find((r) => r.run_id === review.run_id)?.blockers ?? null}
             prId={prId}
             defaultOpen={i === 0}
             repoFullName={repoFullName}

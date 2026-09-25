@@ -19,11 +19,18 @@ export function RunStatus({
   const t = useTranslations("prReview");
   const { events, running } = useRunEvents(runIds);
   const wasRunning = React.useRef(false);
+  const onDoneRef = React.useRef(onDone);
+  onDoneRef.current = onDone;
 
   React.useEffect(() => {
-    if (running) wasRunning.current = true;
-    if (!running && wasRunning.current) onDone?.();
-  }, [running, onDone]);
+    if (running) {
+      wasRunning.current = true;
+      return;
+    }
+    if (!wasRunning.current) return;
+    wasRunning.current = false;
+    onDoneRef.current?.();
+  }, [running]);
 
   if (runIds.length === 0) return null;
 
