@@ -49,15 +49,23 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
     '/runs/:id/events',
     { schema: { params: IdParams }, config: { rateLimit: false } },
     async (req, reply) => {
-    await getContext(container, req);
+    const { workspaceId } = await getContext(container, req);
     const runId = req.params.id;
+    const status = await service.runStatus(workspaceId, runId);
+    if (status === undefined) throw new NotFoundError('Run not found');
+    const live = status === 'running' || container.runBus.knows(runId);
 
     reply.sse(
       (async function* () {
+        if (!live) return;
         // Bridge the in-memory RunBus to an async iterator the SSE plugin drains.
         const queue: RunEvent[] = [];
         let resolve: (() => void) | null = null;
         let done = false;
+        req.raw.on('close', () => {
+          done = true;
+          resolve?.();
+        });
 
         const unsubscribe = container.runBus.subscribe(runId, (e) => {
           queue.push(e);

@@ -170,9 +170,17 @@ export class Container {
     return provider;
   }
 
-  private async buildLlm(id: 'openai' | 'anthropic' | 'openrouter'): Promise<LLMProvider> {
+  async candidateLlm(id: 'openai' | 'anthropic' | 'openrouter', key: string): Promise<LLMProvider> {
+    return this.overrides.llm?.[id] ?? this.buildLlm(id, key);
+  }
+
+  async candidateGithub(token: string): Promise<GitHubClient> {
+    return this.overrides.github ?? new OctokitGitHubClient(token);
+  }
+
+  private async buildLlm(id: 'openai' | 'anthropic' | 'openrouter', candidate?: string): Promise<LLMProvider> {
     if (id === 'openai') {
-      const key = await this.secrets.get('OPENAI_API_KEY');
+      const key = candidate ?? (await this.secrets.get('OPENAI_API_KEY'));
       if (!key) throw new ConfigError('OPENAI_API_KEY is not configured');
       return new OpenAIProvider(key);
     }
@@ -180,14 +188,14 @@ export class Container {
       // Single OpenRouter provider lives in reviewer-core (shared with the CI
       // runner); inject the PriceBook so cost attribution uses LIVE OpenRouter
       // prices (with the static table as a fallback) rather than a hardcoded one.
-      const key = await this.secrets.get('OPENROUTER_API_KEY');
+      const key = candidate ?? (await this.secrets.get('OPENROUTER_API_KEY'));
       if (!key) throw new ConfigError('OPENROUTER_API_KEY is not configured');
       return new OpenRouterProvider(key, {
         estimateCost: (model, tokensIn, tokensOut) =>
           this.priceBook.estimate(model, tokensIn, tokensOut),
       });
     }
-    const key = await this.secrets.get('ANTHROPIC_API_KEY');
+    const key = candidate ?? (await this.secrets.get('ANTHROPIC_API_KEY'));
     if (!key) throw new ConfigError('ANTHROPIC_API_KEY is not configured');
     return new AnthropicProvider(key);
   }

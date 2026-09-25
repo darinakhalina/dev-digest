@@ -22,6 +22,7 @@ module.exports = {
       severity: 'error',
       from: { path: PURE },
       to: {
+        dependencyTypesNot: ['type-only'],
         path: [
           '^src/db/',
           '^src/adapters/',

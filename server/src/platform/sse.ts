@@ -16,7 +16,11 @@ function clockTime(): string {
   return new Date().toTimeString().slice(0, 8);
 }
 
+export const COMPLETED_RUN_RETENTION_MS = 5 * 60_000;
+
 export class RunBus {
+  constructor(private retentionMs = COMPLETED_RUN_RETENTION_MS) {}
+
   private emitters = new Map<string, EventEmitter>();
   private buffers = new Map<string, RunEvent[]>();
   private seq = new Map<string, number>();
@@ -50,6 +54,9 @@ export class RunBus {
 
   /** Publish a live event for a run. Returns the constructed RunEvent. */
   publish(runId: string, kind: RunEventKind, msg: string, data?: unknown): RunEvent {
+    if (this.completed.has(runId)) {
+      return { runId, seq: this.seq.get(runId) ?? 0, kind, msg, t: clockTime(), data };
+    }
     const e = this.emitterFor(runId);
     const next = (this.seq.get(runId) ?? 0) + 1;
     this.seq.set(runId, next);
@@ -80,6 +87,23 @@ export class RunBus {
     e?.emit('done');
     // Keep the buffer briefly available for late subscribers; clear emitter.
     this.emitters.delete(runId);
+    setTimeout(() => this.forget(runId), this.retentionMs).unref();
+  }
+
+  knows(runId: string): boolean {
+    return this.buffers.has(runId) || this.completed.has(runId);
+  }
+
+  closeAll(): void {
+    for (const runId of [...this.emitters.keys()]) this.emitters.get(runId)?.emit('done');
+  }
+
+  private forget(runId: string): void {
+    this.emitters.delete(runId);
+    this.buffers.delete(runId);
+    this.seq.delete(runId);
+    this.completed.delete(runId);
+    this.cancelled.delete(runId);
   }
 
   /** Whether a run has already completed (for replay-then-end late subscribers). */

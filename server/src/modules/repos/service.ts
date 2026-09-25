@@ -37,15 +37,16 @@ export class RepoService {
   }
 
   registerCloneJobHandler(): void {
-    this.container.jobs.register(CLONE_JOB_KIND, async (payload) => {
-      await this.runCloneJob(payload as CloneJobPayload);
+    this.container.jobs.register(CLONE_JOB_KIND, async (payload, { signal }) => {
+      await this.runCloneJob(payload as CloneJobPayload, signal);
     });
   }
 
-  async runCloneJob(payload: CloneJobPayload): Promise<void> {
+  async runCloneJob(payload: CloneJobPayload, signal?: AbortSignal): Promise<void> {
     const { repoId, owner, name, url } = payload;
     const { path } = await this.container.git.clone({ owner, name }, url, {
       depth: CLONE_DEPTH,
+      signal,
     });
     await this.repo.updateClonePath(repoId, path);
 

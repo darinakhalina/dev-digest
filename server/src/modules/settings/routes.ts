@@ -74,23 +74,24 @@ export default async function settingsRoutes(appBase: FastifyInstance) {
     async (req): Promise<ConnTestResult> => {
     const { provider, key } = req.body;
     try {
-      // If the UI supplied a key, persist it (BYO key) before testing so the
-      // test reflects — and the rest of the app can use — the new value.
+      if (key && !container.secrets.set) {
+        return { provider, ok: false, message: 'Secrets backend is read-only' };
+      }
+      let result: ConnTestResult;
+      if (provider === GITHUB_PROVIDER) {
+        const gh = key ? await container.candidateGithub(key) : await container.github();
+        const login = await gh.currentLogin();
+        result = { provider, ok: true, message: `Connected as @${login}` };
+      } else {
+        const llm = key ? await container.candidateLlm(provider, key) : await container.llm(provider);
+        const models = await llm.listModels();
+        result = { provider, ok: true, message: `OK — ${models.length} models available` };
+      }
       if (key) {
-        if (!container.secrets.set) {
-          return { provider, ok: false, message: 'Secrets backend is read-only' };
-        }
-        await container.secrets.set(SECRET_KEY_BY_PROVIDER[provider], key);
+        await container.secrets.set!(SECRET_KEY_BY_PROVIDER[provider], key);
         container.invalidateSecretCaches();
       }
-      if (provider === GITHUB_PROVIDER) {
-        const gh = await container.github();
-        const login = await gh.currentLogin();
-        return { provider, ok: true, message: `Connected as @${login}` };
-      }
-      const llm = await container.llm(provider);
-      const models = await llm.listModels();
-      return { provider, ok: true, message: `OK — ${models.length} models available` };
+      return result;
     } catch (err) {
       return { provider, ok: false, message: (err as Error).message };
     }

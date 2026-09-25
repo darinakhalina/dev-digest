@@ -1,5 +1,5 @@
 import PQueue from 'p-queue';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import * as t from '../db/schema.js';
 import { withTimeout, withRetry } from './resilience.js';
@@ -13,7 +13,7 @@ import { withTimeout, withRetry } from './resilience.js';
  * the handler on the queue, and updates status/attempts/error as it runs.
  */
 
-export type JobHandler = (payload: unknown, ctx: { jobId: string }) => Promise<void>;
+export type JobHandler = (payload: unknown, ctx: { jobId: string; signal: AbortSignal }) => Promise<void>;
 
 export interface JobRunnerOptions {
   concurrency?: number;
@@ -61,15 +61,19 @@ export class JobRunner {
         .update(t.jobs)
         .set({ status: 'running', startedAt: new Date() })
         .where(eq(t.jobs.id, jobId));
+      let attempts = 0;
       try {
         await withRetry(
-          () =>
-            withTimeout(handler(payload, { jobId }), this.timeoutMs).then(async () => {
-              await this.db
-                .update(t.jobs)
-                .set({ attempts: 1 })
-                .where(eq(t.jobs.id, jobId));
-            }),
+          async () => {
+            attempts += 1;
+            const controller = new AbortController();
+            try {
+              await withTimeout(handler(payload, { jobId, signal: controller.signal }), this.timeoutMs);
+            } catch (err) {
+              controller.abort(err);
+              throw err;
+            }
+          },
           {
             retries: this.retries,
             onRetry: async (attempt) => {
@@ -82,13 +86,14 @@ export class JobRunner {
         );
         await this.db
           .update(t.jobs)
-          .set({ status: 'done', finishedAt: new Date() })
+          .set({ status: 'done', attempts, finishedAt: new Date() })
           .where(eq(t.jobs.id, jobId));
       } catch (err) {
         await this.db
           .update(t.jobs)
           .set({
             status: 'failed',
+            attempts,
             finishedAt: new Date(),
             error: (err as Error).message,
           })
@@ -98,6 +103,15 @@ export class JobRunner {
     }) as Promise<void>;
 
     return { id: jobId, done };
+  }
+
+  async reapInterrupted(): Promise<number> {
+    const rows = await this.db
+      .update(t.jobs)
+      .set({ status: 'failed', finishedAt: new Date(), error: 'Interrupted by a server restart' })
+      .where(inArray(t.jobs.status, ['queued', 'running']))
+      .returning({ id: t.jobs.id });
+    return rows.length;
   }
 
   /** Wait for the queue to drain (useful in tests). */

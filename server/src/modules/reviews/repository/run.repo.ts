@@ -1,5 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm';
-import type { Db } from '../../../db/client.js';
+import type { Db, Executor } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
 
@@ -91,12 +91,16 @@ export async function deleteAgentRun(
 }
 
 /** Mark a still-running run as cancelled (no-op if it already finished). */
-export async function runInWorkspace(db: Db, workspaceId: string, runId: string): Promise<boolean> {
-  const rows = await db
-    .select({ id: t.agentRuns.id })
+export async function runStatusInWorkspace(
+  db: Db,
+  workspaceId: string,
+  runId: string,
+): Promise<string | null | undefined> {
+  const [row] = await db
+    .select({ status: t.agentRuns.status })
     .from(t.agentRuns)
     .where(and(eq(t.agentRuns.id, runId), eq(t.agentRuns.workspaceId, workspaceId)));
-  return rows.length > 0;
+  return row ? row.status : undefined;
 }
 
 export async function cancelRunIfRunning(db: Db, workspaceId: string, runId: string): Promise<boolean> {
@@ -154,7 +158,7 @@ export async function createAgentRun(
 }
 
 export async function completeAgentRun(
-  db: Db,
+  db: Executor,
   runId: string,
   values: {
     status: 'done' | 'failed' | 'cancelled';
@@ -171,8 +175,8 @@ export async function completeAgentRun(
     /** Failure reason (status='failed') / cancellation note. Null clears it. */
     error?: string | null;
   },
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const rows = await db
     .update(t.agentRuns)
     .set({
       status: values.status,
@@ -186,7 +190,13 @@ export async function completeAgentRun(
       blockers: values.blockers ?? null,
       error: values.error ?? null,
     })
-    .where(eq(t.agentRuns.id, runId));
+    .where(
+      values.status === 'done'
+        ? and(eq(t.agentRuns.id, runId), eq(t.agentRuns.status, 'running'))
+        : eq(t.agentRuns.id, runId),
+    )
+    .returning({ id: t.agentRuns.id });
+  return rows.length > 0;
 }
 
 /** Persist the WHOLE run log as ONE document. PK = runId → agent_runs. */

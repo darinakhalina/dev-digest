@@ -75,8 +75,8 @@ export class SimpleGitClient implements GitClient {
     return [`${GITHUB_AUTH_CONFIG_KEY}=Authorization: Basic ${basic}`];
   }
 
-  private async remoteGit(baseDir: string): Promise<SimpleGit> {
-    return simpleGit({ baseDir, config: await this.authConfig() });
+  private async remoteGit(baseDir: string, signal?: AbortSignal): Promise<SimpleGit> {
+    return simpleGit({ baseDir, config: await this.authConfig(), ...(signal ? { abort: signal } : {}) });
   }
 
   private async scrubbedRemote(repo: RepoRef): Promise<SimpleGit> {
@@ -111,7 +111,7 @@ export class SimpleGitClient implements GitClient {
     const args: string[] = [];
     if (opts?.depth) args.push('--depth', String(opts.depth));
     if (opts?.branch) args.push('--branch', opts.branch);
-    await (await this.remoteGit(this.cloneDir)).clone(url, dest, args);
+    await (await this.remoteGit(this.cloneDir, opts?.signal)).clone(url, dest, args);
     return { path: dest };
   }
 

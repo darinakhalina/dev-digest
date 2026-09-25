@@ -1,5 +1,6 @@
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
+import { TransactionRollbackError } from 'drizzle-orm';
 import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
 
 /**
@@ -92,8 +93,12 @@ export class ReviewRepository {
     return runRepo.cancelRunIfRunning(this.db, workspaceId, runId);
   }
 
-  runInWorkspace(workspaceId: string, runId: string): Promise<boolean> {
-    return runRepo.runInWorkspace(this.db, workspaceId, runId);
+  async runInWorkspace(workspaceId: string, runId: string): Promise<boolean> {
+    return (await runRepo.runStatusInWorkspace(this.db, workspaceId, runId)) !== undefined;
+  }
+
+  runStatusInWorkspace(workspaceId: string, runId: string): Promise<string | null | undefined> {
+    return runRepo.runStatusInWorkspace(this.db, workspaceId, runId);
   }
 
   /** On boot: any run still 'running' is orphaned (its process died / restarted),
@@ -169,8 +174,34 @@ export class ReviewRepository {
       /** Failure reason (status='failed') / cancellation note. Null clears it. */
       error?: string | null;
     },
-  ): Promise<void> {
+  ): Promise<boolean> {
     return runRepo.completeAgentRun(this.db, runId, values);
+  }
+
+  async persistRunOutcome(input: {
+    review: Parameters<typeof reviewRepo.insertReview>[1];
+    findings: Finding[];
+    reviewedSha: string;
+    complete: Parameters<typeof runRepo.completeAgentRun>[2];
+  }): Promise<{ review: ReviewRow; findings: FindingRow[] } | null> {
+    const runId = input.review.runId;
+    if (!runId) throw new Error('persistRunOutcome needs a run id');
+    try {
+      return await this.db.transaction(async (tx) => {
+        const review = await reviewRepo.insertReview(tx, input.review);
+        const findings = await reviewRepo.insertFindings(tx, review.id, input.findings);
+        await pullRepo.markReviewed(tx, input.review.prId, input.reviewedSha);
+        const completed = await runRepo.completeAgentRun(tx, runId, {
+          ...input.complete,
+          findingsCount: findings.length,
+        });
+        if (!completed) tx.rollback();
+        return { review, findings };
+      });
+    } catch (err) {
+      if (err instanceof TransactionRollbackError) return null;
+      throw err;
+    }
   }
 
   /** Record the head SHA a review ran against (PR-list freshness derivation). */

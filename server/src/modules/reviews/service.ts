@@ -82,6 +82,10 @@ export class ReviewService {
    * so cancel also works for ORPHANED runs (whose background process died on a
    * server restart) where signalling alone would do nothing.
    */
+  runStatus(workspaceId: string, runId: string): Promise<string | null | undefined> {
+    return this.repo.runStatusInWorkspace(workspaceId, runId);
+  }
+
   async cancelRun(workspaceId: string, runId: string): Promise<void> {
     if (!(await this.repo.runInWorkspace(workspaceId, runId))) {
       throw new NotFoundError('Run not found');

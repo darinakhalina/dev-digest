@@ -17,6 +17,7 @@ d('run endpoints stay inside the caller workspace — SPEC-2026-09-25-security-h
   let app: FastifyInstance;
   let ownRunId: string;
   let foreignRunId: string;
+  let ownWorkspaceId: string;
 
   beforeAll(async () => {
     pg = await startPg();
@@ -24,6 +25,7 @@ d('run endpoints stay inside the caller workspace — SPEC-2026-09-25-security-h
     app = await buildApp({ config: config(), db: pg.handle.db });
     await app.ready();
     const [own] = await pg.handle.db.select().from(t.workspaces);
+    ownWorkspaceId = own!.id;
     const [foreign] = await pg.handle.db.insert(t.workspaces).values({ name: 'someone else' }).returning();
     const [ownRun] = await pg.handle.db
       .insert(t.agentRuns)
@@ -70,5 +72,21 @@ d('run endpoints stay inside the caller workspace — SPEC-2026-09-25-security-h
     const res = await app.inject({ method: 'POST', url: `/runs/${ownRunId}/cancel` });
     expect(res.statusCode).toBe(200);
     expect(await statusOf(ownRunId)).toBe('cancelled');
+  });
+
+  it('answers 404 for the event stream of an unknown or foreign run', async () => {
+    const unknown = await app.inject({ method: 'GET', url: '/runs/00000000-0000-4000-8000-000000000000/events' });
+    expect(unknown.statusCode).toBe(404);
+    const foreign = await app.inject({ method: 'GET', url: `/runs/${foreignRunId}/events` });
+    expect(foreign.statusCode).toBe(404);
+  });
+
+  it('ends the event stream of a run that is no longer live instead of holding it open', async () => {
+    const [finished] = await pg.handle.db
+      .insert(t.agentRuns)
+      .values({ workspaceId: ownWorkspaceId, status: 'done' })
+      .returning();
+    const res = await app.inject({ method: 'GET', url: `/runs/${finished!.id}/events` });
+    expect(res.statusCode).toBe(200);
   });
 });
