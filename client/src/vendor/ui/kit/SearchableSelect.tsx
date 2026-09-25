@@ -79,11 +79,14 @@ export function SearchableSelect({
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <div
+      <button
+        type="button"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         style={{
           display: "flex",
           alignItems: "center",
+          width: "100%",
           gap: 10,
           padding: "10px 12px",
           borderRadius: 7,
@@ -106,7 +109,7 @@ export function SearchableSelect({
           {currentLabel}
         </span>
         <Icon.ChevronsUpDown size={14} style={{ color: "var(--text-muted)" }} />
-      </div>
+      </button>
       {open && (
         <div
           style={{

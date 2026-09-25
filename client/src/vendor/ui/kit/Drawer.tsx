@@ -1,5 +1,6 @@
 import React from "react";
 import { IconBtn } from "../primitives";
+import { useDialogA11y } from "./useDialogA11y";
 
 export function Drawer({
   width = 720,
@@ -16,6 +17,7 @@ export function Drawer({
   children?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const dialogRef = useDialogA11y(onClose);
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", justifyContent: "flex-end", zIndex: 50 }}>
       <div
@@ -23,8 +25,10 @@ export function Drawer({
         style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", animation: "ddfadein .15s ease" }}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         style={{
           position: "relative",
           width,

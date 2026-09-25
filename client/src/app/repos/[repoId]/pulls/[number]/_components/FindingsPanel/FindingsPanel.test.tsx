@@ -156,6 +156,23 @@ describe("severity counters and filter", () => {
   });
 });
 
+describe("FindingsPanel filter persistence — INSIGHTS 2026-09-21", () => {
+  it("keeps an active filter across a refetch that hands down a new findings array", () => {
+    const { rerender } = renderWithIntl(<FindingsPanel findings={MANY} prId="pr1" />);
+    fireEvent.click(screen.getByRole("button", { name: /critical/i }));
+    expect(screen.queryByText("Warn one")).not.toBeInTheDocument();
+
+    rerender(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <FindingsPanel findings={MANY.map((f) => ({ ...f }))} prId="pr1" />
+      </NextIntlClientProvider>,
+    );
+
+    expect(screen.queryByText("Warn one")).not.toBeInTheDocument();
+    expect(screen.getByText("Crit one")).toBeInTheDocument();
+  });
+});
+
 describe("FindingsPanel keyboard shortcuts — SPEC-2026-09-25-pr-page-bugs", () => {
   const LIST: FindingRecord[] = [
     { ...FINDINGS[0]!, id: "k1", title: "First" },

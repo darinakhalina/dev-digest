@@ -112,9 +112,7 @@ export function ConfigTab({ agent }: { agent: Agent }) {
         />
       </FormField>
       <FormField label={t("config.repoIntel")} hint={t("config.repoIntelHint")}>
-        <label style={s.enabledLabel}>
-          <Toggle on={repoIntel} onChange={setRepoIntel} size={16} />
-        </label>
+        <Toggle on={repoIntel} onChange={setRepoIntel} size={16} label={t("config.repoIntel")} />
       </FormField>
       <FormField label={t("config.systemPrompt")} hint={t("config.systemPromptHint")}>
         <Textarea value={systemPrompt} onChange={setSystemPrompt} rows={8} mono />

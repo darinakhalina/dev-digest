@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReviewRecord } from "@devdigest/shared";
 import prReview from "../../../../../../../../messages/en/prReview.json";
@@ -42,5 +42,22 @@ describe("ReviewRunAccordion verdict — SPEC-2026-09-25-lib-modules", () => {
     renderWithIntl(<ReviewRunAccordion review={REVIEW} prId="pr1" defaultOpen />);
     const badges = screen.getAllByText(/comment/i);
     for (const b of badges) expect(b).toHaveStyle({ color: "var(--info)" });
+  });
+});
+
+describe("ReviewRunAccordion keyboard — SPEC-2026-09-25-accessibility", () => {
+  it("does not toggle the accordion when Enter is pressed on the delete button", () => {
+    renderWithIntl(<ReviewRunAccordion review={REVIEW} prId="pr1" defaultOpen />);
+    const before = screen.queryByText("s");
+    expect(before).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("button", { name: /delete this review run/i }), { key: "Enter" });
+    expect(screen.queryByText("s")).toBeInTheDocument();
+  });
+
+  it("still toggles when Enter is pressed on the header itself", () => {
+    renderWithIntl(<ReviewRunAccordion review={REVIEW} prId="pr1" />);
+    expect(screen.queryByText("s")).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Security/ }), { key: "Enter" });
+    expect(screen.queryByText("s")).toBeInTheDocument();
   });
 });

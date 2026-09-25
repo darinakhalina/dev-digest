@@ -74,6 +74,7 @@ export function ReviewRunAccordion({
         tabIndex={0}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ") setOpen((o) => !o);
         }}
         style={{

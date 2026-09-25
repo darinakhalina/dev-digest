@@ -4,7 +4,7 @@
  * a settled run is colored/labelled by its denormalized blocker/finding counts,
  * and shows the review score ring.
  */
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, within, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { RunSummary } from "@devdigest/shared";
@@ -239,5 +239,18 @@ describe("RunHistory — finding preview on a tile", () => {
     fireEvent.mouseEnter(hoverTarget);
     expect(screen.getByText("Unbounded query")).toBeInTheDocument();
     expect(screen.getByText("Missing test")).toBeInTheDocument();
+  });
+});
+
+describe("RunHistory delete control — SPEC-2026-09-25-accessibility", () => {
+  it("is a real, focusable button — not a span reachable only by the pointer", () => {
+    const onDelete = vi.fn();
+    renderRuns([run({ status: "done" })], { onDelete });
+    const del = screen.getByRole("button", { name: /delete/i });
+    expect(del.tagName).toBe("BUTTON");
+    del.focus();
+    expect(del).toHaveFocus();
+    fireEvent.click(del);
+    expect(onDelete).toHaveBeenCalledWith("run-1");
   });
 });

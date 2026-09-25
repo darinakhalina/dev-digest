@@ -31,7 +31,7 @@ export function AgentCard({
         <span style={s.name}>{ag.name}</span>
         {onToggle && (
           <div onClick={(e) => e.stopPropagation()}>
-            <Toggle on={ag.enabled} onChange={onToggle} size={14} />
+            <Toggle on={ag.enabled} onChange={onToggle} size={14} label={`Enable ${ag.name}`} />
           </div>
         )}
         <button

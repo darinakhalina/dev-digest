@@ -79,7 +79,7 @@ export function FindingsPanel({
         </div>
         <div style={s.toggleGroup}>
           {t("panel.hideLowConfidence")}
-          <Toggle on={hideLow} onChange={setHideLow} size={16} />
+          <Toggle on={hideLow} onChange={setHideLow} size={16} label={t("panel.hideLowConfidence")} />
         </div>
       </div>
 
