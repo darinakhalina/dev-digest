@@ -10,7 +10,7 @@ the section rules and the quality bar.
 
 ## What Works
 
-**2026-09-22** — Reading past findings is made deterministic by injection, not by instruction:
+**2026-09-22** (refined 2026-09-25) — Reading past findings is made deterministic by injection, not by instruction:
 `SKILL.md:22` carries `` !`cat */INSIGHTS.md .claude/INSIGHTS.md` ``, which runs before the model
 sees the skill body, so the files arrive as context rather than as a request the model may skip.
 That is why a session can name which entries bear on its task before touching anything.
@@ -22,6 +22,23 @@ level deep, so a package nested deeper would be silently skipped; and the `.clau
 spelled out because the glob does not match a dot-directory. Adding a fifth area means editing this
 line by hand, and nothing will complain if you forget — the skill will simply read four files and
 say nothing about the fifth. Evidence: .claude/skills/engineering-insights/SKILL.md:22
+Both paths in that line resolve against the session's working directory, not the repository root,
+and the working directory drifts: a Bash call that runs `cd` leaves the session there. With the
+session inside `.claude/skills/frontend-ui-architecture/`, zsh found no match for `*/INSIGHTS.md`,
+the command failed, and the skill did not load at all — not with four files, not with a warning,
+just "Shell command failed". So a failure to load this skill is first a question of where the
+session stands: return to the repository root and invoke it again before suspecting the skill.
+
+**2026-09-25** — Write a skill for this repo only after running agents on the task without it. For
+code placement in `client/`, three fresh agents already got three of five real questions right with
+nothing but `client/AGENTS.md`, the package docs and precedent — the knowledge a placement skill
+would restate was already in reach. What they lacked was agreement and cost: they split 2:1 on one
+question, one of three moved a component blind on another, and each spent 18–19 file reads and
+~130k tokens deriving conventions. A skill written only against those failures took the split to
+3:0 and the blind moves to zero, with ~35% fewer file reads and ~40% less time, while staying under
+600 words. Written from a best-practices list instead, it would have spent most of its tokens on
+what agents already did right. The baseline prompt, both result tables and the three rules it
+produced are in the skill's README. Evidence: .claude/skills/frontend-ui-architecture/README.md
 
 ## What Doesn't Work
 

@@ -21,6 +21,11 @@ Next.js 15 studio UI. The root `AGENTS.md` applies; this adds client-only rules.
 
 - Pages are thin. Feature logic lives in the route's `_components/<Name>/` — PascalCase folder and
   file, with a colocated `*.test.tsx`.
+- A component used by more than one route lives in `src/components/<kebab-name>/` instead — a
+  kebab-case folder around a PascalCase file and an `index.ts` (`finding-preview/FindingPreviewPanel.tsx`),
+  imported as `@/components/<kebab-name>`. Keep the two casings apart: the folder name then tells you
+  whether a component is route-private or shared without opening it. A route never imports another
+  route's `_components/`, a parent route's included — promote the component instead.
 - Relative imports have **no** extension here (`from "./core"`), unlike `server` and
   `reviewer-core` — Next bundles this code, it does not run as raw ESM.
 - Data flows only through `src/lib/hooks/*` → `src/lib/api.ts` (TanStack Query). No `fetch` in components.
