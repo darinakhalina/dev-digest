@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { PrDetail } from '@devdigest/shared';
+import type { PrDetail, PrMeta } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { PullRow } from '../../db/rows.js';
@@ -22,6 +22,56 @@ export class PullsRepository {
   async findRepo(repoId: string): Promise<RepoRow | undefined> {
     const [repo] = await this.db.select().from(t.repos).where(eq(t.repos.id, repoId));
     return repo;
+  }
+
+  async listForRepo(repoId: string): Promise<PullRow[]> {
+    return this.db.select().from(t.pullRequests).where(eq(t.pullRequests.repoId, repoId));
+  }
+
+  async upsertFromGitHub(workspaceId: string, repoId: string, pulls: PrMeta[]): Promise<void> {
+    for (const pr of pulls) {
+      await this.db
+        .insert(t.pullRequests)
+        .values({
+          workspaceId,
+          repoId,
+          number: pr.number,
+          title: pr.title,
+          author: pr.author,
+          branch: pr.branch,
+          base: pr.base,
+          headSha: pr.head_sha,
+          additions: pr.additions,
+          deletions: pr.deletions,
+          filesCount: pr.files_count,
+          status: pr.status,
+          openedAt: pr.opened_at ? new Date(pr.opened_at) : null,
+          updatedAt: pr.updated_at ? new Date(pr.updated_at) : null,
+        })
+        .onConflictDoUpdate({
+          target: [t.pullRequests.repoId, t.pullRequests.number],
+          set: {
+            title: pr.title,
+            headSha: pr.head_sha,
+            status: pr.status,
+            updatedAt: pr.updated_at ? new Date(pr.updated_at) : null,
+          },
+        });
+    }
+  }
+
+  async updateStats(
+    prId: string,
+    stats: { additions: number; deletions: number; filesCount: number },
+  ): Promise<void> {
+    await this.db
+      .update(t.pullRequests)
+      .set({
+        additions: stats.additions,
+        deletions: stats.deletions,
+        filesCount: stats.filesCount,
+      })
+      .where(eq(t.pullRequests.id, prId));
   }
 
   async storedDetail(prId: string): Promise<{ files: PrFileRow[]; commits: PrCommitRow[] }> {

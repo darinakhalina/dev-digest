@@ -1,6 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import { eq } from 'drizzle-orm';
-import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 
 /**
@@ -15,10 +13,7 @@ export default async function workspaceRoutes(app: FastifyInstance) {
 
   app.get('/workspace', async (req) => {
     const { workspaceId } = await getContext(container, req);
-    const repos = await container.db
-      .select()
-      .from(t.repos)
-      .where(eq(t.repos.workspaceId, workspaceId));
+    const repos = await container.repos.listForWorkspace(workspaceId);
     return {
       workspaceId,
       cloneDir: container.config.cloneDir,

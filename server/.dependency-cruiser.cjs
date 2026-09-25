@@ -102,9 +102,14 @@ module.exports = {
     },
     {
       name: 'only-container-imports-adapters',
-      comment: 'Concrete adapters are imported only by platform/container.ts; everyone else uses the port.',
+      comment:
+        'Concrete adapters are imported only by platform/container.ts; everyone else uses the port. ' +
+        'repo-intel is exempt — it is the indexer subsystem, reached only through container.repoIntel.',
       severity: 'error',
-      from: { path: '^src/', pathNot: ['^src/platform/container\\.ts$', '^src/adapters/'] },
+      from: {
+        path: '^src/',
+        pathNot: ['^src/platform/container\\.ts$', '^src/adapters/', '^src/modules/repo-intel/'],
+      },
       to: { path: '^src/adapters/[^/]+/', pathNot: ['^src/adapters/index\\.ts$'] },
     },
   ],

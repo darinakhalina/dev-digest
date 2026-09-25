@@ -1,7 +1,7 @@
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import { TransactionRollbackError } from 'drizzle-orm';
-import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
+import type { Finding, Intent, PrFindings, RunSummary, RunTrace } from '@devdigest/shared';
 
 /**
  * A2 — review data-access. The ONLY layer touching the DB for the review
@@ -58,6 +58,12 @@ export class ReviewRepository {
 
   insertFindings(reviewId: string, findings: Finding[]): Promise<FindingRow[]> {
     return reviewRepo.insertFindings(this.db, reviewId, findings);
+  }
+
+  reviewSummaryForPrs(
+    prIds: string[],
+  ): Promise<Map<string, { score: number | null; findings: PrFindings | null }>> {
+    return reviewRepo.reviewSummaryForPrs(this.db, prIds);
   }
 
   /** Reviews for a PR (newest first), each with its findings. */
@@ -216,5 +222,9 @@ export class ReviewRepository {
 
   getRunTrace(workspaceId: string, runId: string): Promise<RunTrace | undefined> {
     return runRepo.getRunTrace(this.db, workspaceId, runId);
+  }
+
+  costForPrs(workspaceId: string, prIds: string[]): Promise<Map<string, number>> {
+    return runRepo.costForPrs(this.db, workspaceId, prIds);
   }
 }

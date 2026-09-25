@@ -73,16 +73,27 @@ added. `pnpm arch` ignores exactly those edges and fails on any other. This is t
 
 ## Debt recorded in the baseline
 
-The baseline holds 21 edges. They are known and grouped here so nobody treats them as precedent:
+The baseline is currently empty (`[]`): the 21 edges recorded on 2026-09-25 were fixed and the
+baseline regenerated the same day. If it grows again, group and record each addition here the same
+way, so nobody treats an entry as precedent. What each of the original 21 turned into:
 
-| Group | Edges | The fix, when someone touches it |
-|---|---|---|
-| `pulls`, `settings`, `workspace`, `polling` query from `routes.ts` | 8 | a `repository.ts` and `service.ts` per module |
-| `repo-intel` and `reviews/diff-loader` import from `adapters/` | 8 | most targets (`codeindex/extract`, `git/diff-parser`, `astgrep`, `tokenizer`) are pure parsers kept in `adapters/`, not port implementations — move them out of `adapters/` rather than exempting them |
-| `adapters/astgrep` and `adapters/depgraph` import `repo-intel/constants` | 2 | move the shared constants inward |
-| `repos/service` imports `repo-intel/constants` | 1 | the same move |
-| `repos/helpers` imports `db/schema` | 1 | take the row type from `db/rows.ts` |
-| `reviews/run-executor` imports `db/schema` | 1 | through the reviews repository |
+- `pulls`, `settings`, `workspace`, `polling` querying from `routes.ts` (8 edges) — each module got
+  a `repository.ts` and a `service.ts`. `pulls` and `polling` share one `PullsService` (exposed as
+  `container.pulls`), which also fixed a real bug: the two copies of the PR upsert had drifted, and
+  `polling`'s copy silently left `opened_at` null on new PRs.
+- `repo-intel`, `astgrep`, `depgraph` importing from `adapters/codeindex` and each other (8 edges) —
+  `SUPPORTED_EXT` and `MAX_SIGNATURE_CHARS` moved to `adapters/codeindex/constants.ts`, the one
+  place both the module and the two adapters may reach. `only-container-imports-adapters` now
+  explicitly exempts `src/modules/repo-intel/`, matching the exemption `services-depend-on-ports`
+  already had — repo-intel's status as infrastructure was already accepted, this just says so once
+  instead of leaving every file it touches as recorded debt.
+- `repos/service` and two adapters importing `repo-intel/constants` (3 edges) — same constants move.
+- `reviews/diff-loader` importing the diff parser (1 edge) — the parser was pure and reused by an
+  adapter (`simple-git.ts`) and a module; it moved to `platform/diff-parser.ts`, which both may
+  import (see `layers.md` — `platform/` other than `container.ts` is neutral ground, not a ring).
+- `repos/helpers` and `reviews/run-executor` importing `db/schema` (2 edges) — both only used it for
+  a type; switched to `type` imports of `db/rows.ts` row types, which the `pure-domain` and
+  `service-via-repository` rules already exempt.
 
 ## Testing each ring
 

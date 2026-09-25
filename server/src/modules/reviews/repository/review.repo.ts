@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db, Executor } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
-import type { Finding } from '@devdigest/shared';
+import type { Finding, PrFindings, Severity, FindingCategory } from '@devdigest/shared';
 import type { FindingRow, PullRow } from '../../../db/rows.js';
 
 export type ReviewRow = typeof t.reviews.$inferSelect;
@@ -140,4 +140,105 @@ export async function setFindingDismissed(
     .where(eq(t.findings.id, findingId))
     .returning();
   return row;
+}
+
+const DESCRIPTION_LIMIT = 160;
+const SEVERITY_RANK: Record<string, number> = { CRITICAL: 0, WARNING: 1, SUGGESTION: 2 };
+
+export async function reviewSummaryForPrs(
+  db: Db,
+  prIds: string[],
+): Promise<Map<string, { score: number | null; findings: PrFindings | null }>> {
+  const out = new Map<string, { score: number | null; findings: PrFindings | null }>();
+  if (prIds.length === 0) return out;
+
+  const reviewRows = await db
+    .select({
+      id: t.reviews.id,
+      prId: t.reviews.prId,
+      agentId: t.reviews.agentId,
+      score: t.reviews.score,
+    })
+    .from(t.reviews)
+    .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
+    .orderBy(desc(t.reviews.createdAt));
+
+  const latestScoreByPr = new Map<string, number | null>();
+  const countedReviewsByPr = new Map<string, string[]>();
+  const seen = new Set<string>();
+  for (const rv of reviewRows) {
+    if (!latestScoreByPr.has(rv.prId)) latestScoreByPr.set(rv.prId, rv.score);
+    const key = `${rv.prId}:${rv.agentId ?? 'NULL'}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const bucket = countedReviewsByPr.get(rv.prId) ?? [];
+    bucket.push(rv.id);
+    countedReviewsByPr.set(rv.prId, bucket);
+  }
+
+  const reviewToPr = new Map<string, string>();
+  for (const [prId, ids] of countedReviewsByPr) for (const id of ids) reviewToPr.set(id, prId);
+
+  const countedReviewIds = [...reviewToPr.keys()];
+  const findingsByPr = new Map<string, PrFindings>();
+  if (countedReviewIds.length > 0) {
+    const findingRows = await db
+      .select({
+        reviewId: t.findings.reviewId,
+        severity: t.findings.severity,
+        title: t.findings.title,
+        category: t.findings.category,
+        file: t.findings.file,
+        startLine: t.findings.startLine,
+        confidence: t.findings.confidence,
+        rationale: t.findings.rationale,
+      })
+      .from(t.findings)
+      .where(inArray(t.findings.reviewId, countedReviewIds));
+
+    const groupedByPr = new Map<string, typeof findingRows>();
+    for (const row of findingRows) {
+      const prId = reviewToPr.get(row.reviewId);
+      if (!prId) continue;
+      const bucket = groupedByPr.get(prId) ?? [];
+      bucket.push(row);
+      groupedByPr.set(prId, bucket);
+    }
+
+    for (const [prId, findingsForPr] of groupedByPr) {
+      if (findingsForPr.length === 0) continue;
+      const counts: Record<string, number> = {};
+      for (const row of findingsForPr) counts[row.severity] = (counts[row.severity] ?? 0) + 1;
+      const previews = [...findingsForPr]
+        .sort(
+          (a, b) =>
+            (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) ||
+            b.confidence - a.confidence ||
+            a.file.localeCompare(b.file) ||
+            a.startLine - b.startLine ||
+            a.title.localeCompare(b.title),
+        )
+        .map((row) => ({
+          severity: row.severity as Severity,
+          title: row.title,
+          category: row.category as FindingCategory,
+          file: row.file,
+          line: row.startLine,
+          confidence: row.confidence,
+          description:
+            row.rationale.length > DESCRIPTION_LIMIT
+              ? `${row.rationale.slice(0, DESCRIPTION_LIMIT)}…`
+              : row.rationale,
+        }));
+      findingsByPr.set(prId, { counts: counts as PrFindings['counts'], total: findingsForPr.length, previews });
+    }
+  }
+
+  for (const prId of prIds) {
+    out.set(prId, {
+      score: latestScoreByPr.get(prId) ?? null,
+      findings: findingsByPr.get(prId) ?? null,
+    });
+  }
+  return out;
 }

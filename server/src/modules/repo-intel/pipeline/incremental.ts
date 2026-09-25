@@ -25,8 +25,8 @@ import {
   DEFAULT_REPO_MAP_TOKEN_BUDGET,
   INDEXER_VERSION,
   MAX_PARSE_MS_PER_FILE,
-  SUPPORTED_EXT,
 } from '../constants.js';
+import { SUPPORTED_EXT } from '../../../adapters/codeindex/constants.js';
 import type {
   IndexerEdgeRow,
   IndexerFileFactsRow,

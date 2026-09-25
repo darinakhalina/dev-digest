@@ -30,7 +30,7 @@ Out of scope, and where it goes instead:
 | `references/tools.md` | Fastify, Zod, Drizzle, the LLM SDKs, Octokit, simple-git, jobs and SSE — each in its ring |
 | `references/enforcement-and-testing.md` | the gate's rules, the baseline ratchet, the recorded debt, testing per ring |
 | `server/.dependency-cruiser.cjs` | the rules the gate runs |
-| `server/.dependency-cruiser-known-violations.json` | the 21 edges that existed when the gate was added |
+| `server/.dependency-cruiser-known-violations.json` | recorded debt the gate ignores; empty as of 2026-09-25 — the 21 edges present when the gate was added were fixed the same day, see `enforcement-and-testing.md` § *Debt recorded in the baseline* |
 
 ## How it was written
 
@@ -287,4 +287,7 @@ research passes kept raw copies. Status is the HTTP status received.
 ## Changelog
 
 **1.0.0 — 2026-09-25.** First version: ring table, placement table, three rules, three references,
-and the dependency-cruiser gate with a 21-edge baseline.
+and the dependency-cruiser gate with a 21-edge baseline. Later the same day, all 21 were fixed
+(server phase 2 of the whole-project audit) and the baseline regenerated to `[]`; `only-container-imports-adapters`
+gained an explicit `src/modules/repo-intel/` exemption in the same change, matching the one
+`services-depend-on-ports` already had.

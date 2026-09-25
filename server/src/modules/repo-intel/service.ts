@@ -50,8 +50,8 @@ import {
   MAX_CALLERS_PER_SYMBOL,
   REFRESH_JOB_KIND,
   RESYNC_JOB_KIND,
-  SUPPORTED_EXT,
 } from './constants.js';
+import { SUPPORTED_EXT } from '../../adapters/codeindex/constants.js';
 import { runFullIndex, type IndexPayload } from './pipeline/full.js';
 import { runIncremental } from './pipeline/incremental.js';
 
@@ -130,6 +130,26 @@ export class RepoIntelService implements RepoIntel {
    */
   async refreshIndex(repoId: string): Promise<IndexResult> {
     return runIncremental(this.container, this.repo, { repoId });
+  }
+
+  async enqueueIndex(repoId: string, owner?: string, name?: string): Promise<void> {
+    const basics = await this.repo.getRepoBasics(repoId);
+    if (!basics) return;
+    await this.container.jobs.enqueue(basics.workspaceId, INDEX_JOB_KIND, {
+      repoId,
+      owner: owner ?? basics.owner,
+      name: name ?? basics.name,
+    });
+  }
+
+  async enqueueRefresh(repoId: string, owner?: string, name?: string): Promise<void> {
+    const basics = await this.repo.getRepoBasics(repoId);
+    if (!basics) return;
+    await this.container.jobs.enqueue(basics.workspaceId, REFRESH_JOB_KIND, {
+      repoId,
+      owner: owner ?? basics.owner,
+      name: name ?? basics.name,
+    });
   }
 
   /**

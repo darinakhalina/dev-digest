@@ -27,8 +27,8 @@ import {
   EXCLUDED_DIRS,
   MAX_FILE_SIZE,
   MAX_INDEXED_FILES,
-  SUPPORTED_EXT,
 } from '../constants.js';
+import { SUPPORTED_EXT } from '../../../adapters/codeindex/constants.js';
 
 const EXCLUDED_SET: ReadonlySet<string> = new Set(EXCLUDED_DIRS);
 const SUPPORTED_SET: ReadonlySet<string> = new Set(SUPPORTED_EXT);

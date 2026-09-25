@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db, Executor } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
@@ -218,4 +218,28 @@ export async function getRunTrace(
     .innerJoin(t.agentRuns, eq(t.agentRuns.id, t.runTraces.runId))
     .where(and(eq(t.runTraces.runId, runId), eq(t.agentRuns.workspaceId, workspaceId)));
   return row ? (row.trace as RunTrace) : undefined;
+}
+
+export async function costForPrs(
+  db: Db,
+  workspaceId: string,
+  prIds: string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (prIds.length === 0) return out;
+  const runRows = await db
+    .select({ prId: t.agentRuns.prId, costUsd: t.agentRuns.costUsd })
+    .from(t.agentRuns)
+    .where(
+      and(
+        eq(t.agentRuns.workspaceId, workspaceId),
+        inArray(t.agentRuns.prId, prIds),
+        eq(t.agentRuns.status, 'done'),
+      ),
+    );
+  for (const run of runRows) {
+    if (!run.prId || run.costUsd == null) continue;
+    out.set(run.prId, (out.get(run.prId) ?? 0) + run.costUsd);
+  }
+  return out;
 }

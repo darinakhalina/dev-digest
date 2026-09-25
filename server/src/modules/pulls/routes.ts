@@ -1,21 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray } from 'drizzle-orm';
-import type {
-  PrMeta,
-  PrDetail,
-  PrFindings,
-  GitHubClient,
-  PrReviewComment,
-  Severity,
-  FindingCategory,
-} from '@devdigest/shared';
+import type { PrMeta, PrDetail, GitHubClient, PrReviewComment } from '@devdigest/shared';
 import { PrCommentInput } from '@devdigest/shared';
-import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
-import { AppError, NotFoundError } from '../../platform/errors.js';
-import { deriveReviewStatus } from './status.js';
+import { AppError } from '../../platform/errors.js';
 import { PullsService } from './service.js';
 
 /**
@@ -32,256 +21,14 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
 
+  const pulls = new PullsService(container, (err) =>
+    app.log.warn({ err }, 'GitHub PR sync/detail refresh skipped (no token / offline); serving persisted data'),
+  );
+
   app.get('/repos/:id/pulls', { schema: { params: IdParams } }, async (req): Promise<PrMeta[]> => {
     const { workspaceId } = await getContext(container, req);
-    const [repo] = await container.db
-      .select()
-      .from(t.repos)
-      .where(and(eq(t.repos.workspaceId, workspaceId), eq(t.repos.id, req.params.id)));
-    if (!repo) throw new NotFoundError('Repo not found');
-
-    let gh: GitHubClient | null = null;
-    try {
-      gh = await container.github();
-    } catch (err) {
-      app.log.warn({ err }, 'GitHub client unavailable (no token / offline); serving persisted PRs');
-    }
-
-    // Local-first: sync from GitHub when a token is configured, but never
-    // fail the read — already-imported/seeded PRs stay viewable offline.
-    if (gh) {
-      try {
-        const pulls = await gh.listPullRequests({ owner: repo.owner, name: repo.name });
-        for (const pr of pulls) {
-          await container.db
-            .insert(t.pullRequests)
-            .values({
-              workspaceId,
-              repoId: repo.id,
-              number: pr.number,
-              title: pr.title,
-              author: pr.author,
-              branch: pr.branch,
-              base: pr.base,
-              headSha: pr.head_sha,
-              additions: pr.additions,
-              deletions: pr.deletions,
-              filesCount: pr.files_count,
-              status: pr.status,
-              openedAt: pr.opened_at ? new Date(pr.opened_at) : null,
-              updatedAt: pr.updated_at ? new Date(pr.updated_at) : null,
-            })
-            .onConflictDoUpdate({
-              target: [t.pullRequests.repoId, t.pullRequests.number],
-              set: {
-                title: pr.title,
-                headSha: pr.head_sha,
-                status: pr.status,
-                updatedAt: pr.updated_at ? new Date(pr.updated_at) : null,
-              },
-            });
-        }
-      } catch (err) {
-        app.log.warn({ err }, 'GitHub PR sync skipped (no token / offline); serving persisted PRs');
-      }
-    }
-
-    const rows = await container.db
-      .select()
-      .from(t.pullRequests)
-      .where(eq(t.pullRequests.repoId, repo.id));
-
-    // Diff stats aren't on GitHub's PR-list payload, so freshly-imported PRs
-    // land with zeroed size/diff. Backfill them once from the detail endpoint
-    // so the list shows real S/M/L + ± counts. Capped per request (each backfill
-    // is a detail fetch) — the periodic refetch chips away at any remainder.
-    const BACKFILL_LIMIT = 10;
-    if (gh) {
-      const needStats = rows
-        .filter((r) => r.additions === 0 && r.deletions === 0 && r.filesCount === 0)
-        .slice(0, BACKFILL_LIMIT);
-      for (const r of needStats) {
-        try {
-          const detail = await gh.getPullRequest({ owner: repo.owner, name: repo.name }, r.number);
-          await container.db
-            .update(t.pullRequests)
-            .set({
-              additions: detail.additions,
-              deletions: detail.deletions,
-              filesCount: detail.files_count,
-            })
-            .where(eq(t.pullRequests.id, r.id));
-          r.additions = detail.additions;
-          r.deletions = detail.deletions;
-          r.filesCount = detail.files_count;
-        } catch (err) {
-          app.log.warn({ err, number: r.number }, 'PR diff-stat backfill skipped');
-        }
-      }
-    }
-
-    // Latest-review SCORE, and the FINDINGS breakdown of every agent's latest
-    // completed review. Both computed on read.
-    //
-    // The score stays one review's; the findings do not. A "Review all" fans out
-    // one review per enabled agent, so reading a single review reports whichever
-    // agent finished last and silently drops the rest — see
-    // specs/2026-09-23-pr-list-findings-per-agent.md.
-    const prIds = rows.map((r) => r.id);
-    const latestReviewByPr = new Map<string, { id: string; score: number | null }>();
-    /** prId → the review ids counted for it: each agent's latest, plus the latest
-     *  of the reviews that record no agent at all, which form one further bucket. */
-    const countedReviewsByPr = new Map<string, string[]>();
-    if (prIds.length > 0) {
-      const reviewRows = await container.db
-        .select({
-          id: t.reviews.id,
-          prId: t.reviews.prId,
-          agentId: t.reviews.agentId,
-          score: t.reviews.score,
-        })
-        .from(t.reviews)
-        .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
-        .orderBy(desc(t.reviews.createdAt));
-      // Rows are newest-first → the first row seen for a key is that key's latest.
-      const seen = new Set<string>();
-      for (const rv of reviewRows) {
-        if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { id: rv.id, score: rv.score });
-        const key = `${rv.prId}:${rv.agentId ?? 'NULL'}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const bucket = countedReviewsByPr.get(rv.prId) ?? [];
-        bucket.push(rv.id);
-        countedReviewsByPr.set(rv.prId, bucket);
-      }
-    }
-
-    // FINDINGS column: every finding of the counted reviews, previewed.
-    // One IN-query over the already-known review ids — never a query per row,
-    // and never a query per agent.
-    const DESCRIPTION_LIMIT = 160;
-    const SEVERITY_RANK: Record<string, number> = { CRITICAL: 0, WARNING: 1, SUGGESTION: 2 };
-
-    const findingsByPr = new Map<string, PrFindings>();
-    const countedReviewIds = [...countedReviewsByPr.values()].flat();
-    if (countedReviewIds.length > 0) {
-      const reviewToPr = new Map<string, string>();
-      for (const [prId2, ids] of countedReviewsByPr) {
-        for (const id of ids) reviewToPr.set(id, prId2);
-      }
-
-      // Every finding those reviews produced, including ones already accepted or
-      // rejected: the heading describes the reviews, not the current triage state.
-      const findingRows = await container.db
-        .select({
-          reviewId: t.findings.reviewId,
-          severity: t.findings.severity,
-          title: t.findings.title,
-          category: t.findings.category,
-          file: t.findings.file,
-          startLine: t.findings.startLine,
-          confidence: t.findings.confidence,
-          rationale: t.findings.rationale,
-        })
-        .from(t.findings)
-        .where(inArray(t.findings.reviewId, countedReviewIds));
-
-      const groupedByPr = new Map<string, typeof findingRows>();
-      for (const row of findingRows) {
-        const prId2 = reviewToPr.get(row.reviewId);
-        if (!prId2) continue;
-        const bucket = groupedByPr.get(prId2) ?? [];
-        bucket.push(row);
-        groupedByPr.set(prId2, bucket);
-      }
-
-      for (const [prId2, findingsForPr] of groupedByPr) {
-        if (findingsForPr.length === 0) continue;
-        const counts: Record<string, number> = {};
-        for (const row of findingsForPr) counts[row.severity] = (counts[row.severity] ?? 0) + 1;
-        const previews = [...findingsForPr]
-          // File, line and title break the ties severity and confidence leave.
-          // Without them the order is the storage order, which is not guaranteed
-          // — one list now holds several agents' findings, so ties are common and
-          // the panel reshuffles between loads.
-          .sort(
-            (a, b) =>
-              (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) ||
-              b.confidence - a.confidence ||
-              a.file.localeCompare(b.file) ||
-              a.startLine - b.startLine ||
-              a.title.localeCompare(b.title),
-          )
-          .map((row) => ({
-            severity: row.severity as Severity,
-            title: row.title,
-            category: row.category as FindingCategory,
-            file: row.file,
-            line: row.startLine,
-            confidence: row.confidence,
-            description:
-              row.rationale.length > DESCRIPTION_LIMIT
-                ? `${row.rationale.slice(0, DESCRIPTION_LIMIT)}…`
-                : row.rationale,
-          }));
-        findingsByPr.set(prId2, { counts, total: findingsForPr.length, previews });
-      }
-    }
-
-    // What this PR has cost so far: every completed run, summed. A run the
-    // provider never priced contributes nothing rather than zeroing the total,
-    // and a PR with no priced run at all stays null so the UI shows "—".
-    const costByPr = new Map<string, number>();
-    if (prIds.length > 0) {
-      const runRows = await container.db
-        .select({ prId: t.agentRuns.prId, costUsd: t.agentRuns.costUsd })
-        .from(t.agentRuns)
-        .where(
-          and(
-            eq(t.agentRuns.workspaceId, workspaceId),
-            inArray(t.agentRuns.prId, prIds),
-            eq(t.agentRuns.status, 'done'),
-          ),
-        );
-      for (const run of runRows) {
-        if (!run.prId || run.costUsd == null) continue;
-        costByPr.set(run.prId, (costByPr.get(run.prId) ?? 0) + run.costUsd);
-      }
-    }
-
-    const now = Date.now();
-    return rows.map((r) => {
-      const review = latestReviewByPr.get(r.id);
-      return {
-        id: r.id,
-        number: r.number,
-        title: r.title,
-        author: r.author,
-        branch: r.branch,
-        base: r.base,
-        head_sha: r.headSha,
-        additions: r.additions,
-        deletions: r.deletions,
-        files_count: r.filesCount,
-        status: deriveReviewStatus({
-          ghStatus: r.status,
-          lastReviewedSha: r.lastReviewedSha,
-          headSha: r.headSha,
-          updatedAt: r.updatedAt,
-          now,
-        }),
-        opened_at: r.openedAt?.toISOString() ?? null,
-        updated_at: r.updatedAt?.toISOString() ?? null,
-        score: review ? review.score : null,
-        cost_usd: costByPr.get(r.id) ?? null,
-        findings: findingsByPr.get(r.id) ?? null,
-      };
-    });
+    return pulls.list(workspaceId, req.params.id);
   });
-
-  const pulls = new PullsService(container, (err) =>
-    app.log.warn({ err }, 'GitHub PR detail refresh skipped (no token / offline); serving persisted detail'),
-  );
 
   app.get('/pulls/:id', { schema: { params: IdParams } }, async (req): Promise<PrDetail> => {
     const { workspaceId } = await getContext(container, req);
@@ -292,15 +39,8 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
   // Proxied live to GitHub (no local persistence): GET reflects existing PR
   // comments; POST creates one immediately. Keeps the tab in lock-step with
   // GitHub and avoids a stale local mirror.
-  async function resolvePrAndRepo(id: string, workspaceId: string) {
-    const [pr] = await container.db
-      .select()
-      .from(t.pullRequests)
-      .where(and(eq(t.pullRequests.workspaceId, workspaceId), eq(t.pullRequests.id, id)));
-    if (!pr) throw new NotFoundError('Pull request not found');
-    const [repo] = await container.db.select().from(t.repos).where(eq(t.repos.id, pr.repoId));
-    if (!repo) throw new NotFoundError('Repo not found');
-    return { pr, repo };
+  function resolvePrAndRepo(id: string, workspaceId: string) {
+    return pulls.resolvePrAndRepo(workspaceId, id);
   }
 
   app.get(

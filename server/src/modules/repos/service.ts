@@ -1,16 +1,13 @@
 import type { Container } from '../../platform/container.js';
 import { type Repo } from '@devdigest/shared';
 import { NotFoundError } from '../../platform/errors.js';
-import { RepoRepository } from './repository.js';
+import { RepoRepository, type RepoRow } from './repository.js';
 import { parseRepoUrl, toRepoDto } from './helpers.js';
 import {
   CLONE_JOB_KIND,
   CLONE_DEPTH,
 } from './constants.js';
-import {
-  INDEX_JOB_KIND,
-  REFRESH_JOB_KIND,
-} from '../repo-intel/constants.js';
+import type { RepoAccess } from './types.js';
 
 /**
  * F1 — repos service. Business logic for the Repositories feature:
@@ -29,11 +26,19 @@ export interface CloneJobPayload {
   url: string;
 }
 
-export class RepoService {
+export class RepoService implements RepoAccess {
   private repo: RepoRepository;
 
   constructor(private container: Container) {
     this.repo = new RepoRepository(container.db);
+  }
+
+  listForWorkspace(workspaceId: string): Promise<RepoRow[]> {
+    return this.repo.list(workspaceId);
+  }
+
+  touchLastPolled(repoId: string): Promise<void> {
+    return this.repo.touchLastPolled(repoId);
   }
 
   registerCloneJobHandler(): void {
@@ -55,19 +60,12 @@ export class RepoService {
     // job under JobRunner's timeout/retry. If the handler isn't registered
     // (e.g. repo-intel disabled at module wiring), enqueue() throws — log and
     // continue so the clone result is preserved either way.
-    const workspaceId = await this.repo.workspaceIdFor(repoId);
-    if (workspaceId) {
-      try {
-        await this.container.jobs.enqueue(workspaceId, INDEX_JOB_KIND, {
-          repoId,
-          owner,
-          name,
-        });
-      } catch {
-        // No handler registered or transient enqueue failure — clone has
-        // already succeeded, so we don't fail the job for an index-followup
-        // miss. The user can hit POST /repos/:id/reindex to retry.
-      }
+    try {
+      await this.container.repoIntel.enqueueIndex(repoId, owner, name);
+    } catch {
+      // No handler registered or transient enqueue failure — clone has
+      // already succeeded, so we don't fail the job for an index-followup
+      // miss. The user can hit POST /repos/:id/reindex to retry.
     }
   }
 
@@ -119,11 +117,7 @@ export class RepoService {
     // refresh fires before the new clone settles, it cheaply exits; if after,
     // it picks up the new HEAD.
     try {
-      await this.container.jobs.enqueue(workspaceId, REFRESH_JOB_KIND, {
-        repoId: repo.id,
-        owner: repo.owner,
-        name: repo.name,
-      });
+      await this.container.repoIntel.enqueueRefresh(repo.id, repo.owner, repo.name);
     } catch {
       // No handler / transient enqueue failure — refresh button is best-effort.
     }
