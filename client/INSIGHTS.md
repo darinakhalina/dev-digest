@@ -93,13 +93,20 @@ down, because the barrel (`vendor/ui/index.ts`) re-exports `./charts` unconditio
 `charts/LineChart.tsx` imports `recharts`, a client-only library whose class components can't
 evaluate in the RSC module graph. `error.tsx`/`global-error.tsx` are safe from this because Next
 itself refuses to build them without `"use client"`; `not-found.tsx` has no such enforcement, so nothing
-catches a missing directive there. Confirmed with a fresh `rm -rf .next` restart (not a stale-cache
-artifact). Critically, `pnpm run build` stayed green throughout and even prerendered `/_not-found` as
-static — production's prerender pass doesn't exercise every route's dynamic-error path the way `next
-dev` serving an actual 404 does, so a clean build is not evidence this class of bug is absent. Before
-adding a new file in this list, grep it for `"use client"` if it (even transitively, through a
-barrel) touches `@devdigest/ui`; a browser check of at least one broken/404 URL is the only thing
-that actually caught this. Evidence: client/src/app/not-found.tsx:1
+catches a missing directive there. The file was introduced in this state at 18:35 and survived two more
+"typecheck && vitest && build" verification passes (through 19:35+) before anyone opened a browser —
+not because those checks were run carelessly, but because none of them can see this bug in principle.
+Confirmed by directly testing the failure boundary, not assuming it: reintroducing the missing
+directive and running `next build` → `next start` → `curl` a real 404 URL served a correct "Page not
+found" page, no crash. Only `next dev` reproduces it — production's build-time client-reference-manifest
+pass resolves the server/client module boundary for the whole app graph up front, while `next dev`
+compiles each route's RSC and client layers incrementally and lazily on first hit, and it is that
+incremental compilation that puts `recharts` in the wrong layer. So neither `pnpm typecheck`, nor
+vitest, nor even `pnpm run build`, is a substitute for opening the dev server and requesting the page —
+that is the one check with any chance of catching this class of bug, and it wasn't run until asked for.
+Before adding a new Next special file (`page.tsx`, `layout.tsx`, `loading.tsx`, `template.tsx`,
+`not-found.tsx`), grep it for `"use client"` if it, even transitively through a barrel, touches
+`@devdigest/ui`. Evidence: client/src/app/not-found.tsx:1
 
 **2026-09-25** — A fake `EventSource` for testing `useRunEvents` must NOT route every `emit(kind,
 data)` through `onmessage`: real `EventSource.onmessage` fires only for a default SSE frame (no
