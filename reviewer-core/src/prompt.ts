@@ -29,7 +29,7 @@ const INJECTION_GUARD =
 
 export function wrapUntrusted(label: string, content: string): string {
   // strip any attempt to close our own delimiter
-  const safe = content.replaceAll('</untrusted>', '<\\/untrusted>');
+  const safe = content.replace(/<(\s*\/?\s*untrusted\b[^>]*)>/gi, '&lt;$1>');
   return `<untrusted source="${label}">\n${safe}\n</untrusted>`;
 }
 
@@ -66,6 +66,7 @@ export interface PromptParts {
    * undefined → section omitted.
    */
   prDescription?: string;
+  prTitle?: string;
   /** The unified diff / user task (untrusted content). */
   diff: string;
   /** Optional task framing line, e.g. "Review PR #482 '…'". */
@@ -103,6 +104,9 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
 
   const userSections: string[] = [];
   if (parts.task) userSections.push(parts.task);
+  if (parts.prTitle && parts.prTitle.trim().length > 0) {
+    userSections.push(`## PR title\n${wrapUntrusted('pr-title', parts.prTitle)}`);
+  }
   if (prDescription) {
     userSections.push(`## PR description\n${wrapUntrusted('pr-description', prDescription)}`);
   }

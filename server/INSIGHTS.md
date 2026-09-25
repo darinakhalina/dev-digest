@@ -61,6 +61,13 @@ null. Evidence: server/src/modules/reviews/run-executor.ts:191
 
 ## Recurring Errors & Fixes
 
+**2026-09-25** — Every `buildApp()` marks all `agent_runs` still `running` as `failed` before it
+answers anything (`reapStaleRuns` on boot, `app.ts:80-85`). A DB-backed test that inserts a
+`running` run and then builds an app per test sees it flipped to `failed` — a cancel test then fails
+with "expected 'failed' to be 'cancelled'", which reads as a bug in the cancel path. Build the app
+once, `await app.ready()`, and only then insert the runs the test needs.
+Evidence: server/test/runs-scoping.it.test.ts:24
+
 ## Session Notes
 
 **2026-09-19** — `RunStats` is read out of the `run_traces` jsonb document, `RunSummary` off a

@@ -156,11 +156,15 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       });
       return;
     }
+    const e = err as { statusCode?: number; code?: string; message?: string };
+    if (typeof e.statusCode === 'number' && e.statusCode >= 400 && e.statusCode < 500) {
+      reply.status(e.statusCode).send({
+        error: { code: e.code ?? 'bad_request', message: e.message ?? 'Bad request' },
+      });
+      return;
+    }
     app.log.error(err);
-    const e = err as { statusCode?: number; message?: string };
-    reply.status(e.statusCode ?? 500).send({
-      error: { code: 'internal_error', message: e.message ?? 'Internal error' },
-    });
+    reply.status(500).send({ error: { code: 'internal_error', message: 'Internal error' } });
   });
 
   // Register feature modules from the static registry (src/modules/index.ts).

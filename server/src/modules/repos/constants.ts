@@ -8,17 +8,10 @@ export const CLONE_JOB_KIND = 'clone';
 /** Clone depth — shallow clone (latest commit only) keeps imports fast. */
 export const CLONE_DEPTH = 1;
 
-/** Secret name (via the Secrets adapter) holding the GitHub PAT for private clones. */
-export const GITHUB_TOKEN_SECRET = 'GITHUB_TOKEN';
+export const GITHUB_HOST = 'github.com';
 
-/**
- * Parse `owner`/`repo` from a GitHub URL — supports both
- * `https://github.com/owner/repo(.git)` and `git@github.com:owner/repo.git`.
- */
-export const GITHUB_URL_REGEX = /github\.com[/:]([^/]+)\/([^/.]+)(?:\.git)?\/?$/;
+export const GITHUB_OWNER_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 
-/** Username embedded into an authenticated https github.com clone URL. */
-export const GIT_TOKEN_USERNAME = 'x-access-token';
+export const GITHUB_REPO_NAME_RE = /^[A-Za-z0-9._-]{1,100}$/;
 
-/** Host for which a token is embedded into an https clone URL. */
-export const GITHUB_HTTPS_HOST = 'github.com';
+export const GITHUB_SSH_RE = /^git@github\.com:(.+)$/;

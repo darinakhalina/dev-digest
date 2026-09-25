@@ -82,10 +82,13 @@ export class ReviewService {
    * so cancel also works for ORPHANED runs (whose background process died on a
    * server restart) where signalling alone would do nothing.
    */
-  async cancelRun(runId: string): Promise<void> {
+  async cancelRun(workspaceId: string, runId: string): Promise<void> {
+    if (!(await this.repo.runInWorkspace(workspaceId, runId))) {
+      throw new NotFoundError('Run not found');
+    }
     this.publish(runId, 'info', 'Cancellation requested — stopping…');
     this.container.runBus.cancel(runId);
-    await this.repo.cancelRunIfRunning(runId);
+    await this.repo.cancelRunIfRunning(workspaceId, runId);
     this.container.runBus.complete(runId);
   }
 
@@ -173,7 +176,7 @@ export class ReviewService {
     );
   }
 
-  async getRunTrace(runId: string): Promise<RunTrace | undefined> {
-    return this.repo.getRunTrace(runId);
+  async getRunTrace(workspaceId: string, runId: string): Promise<RunTrace | undefined> {
+    return this.repo.getRunTrace(workspaceId, runId);
   }
 }
