@@ -46,7 +46,7 @@ target guard on the parent's own `onKeyDown`: `if (e.target !== e.currentTarget)
 handling Enter/Space. `PromptBlock` is the sharpest case — its copy/fullscreen buttons already called
 `e.stopPropagation()` on click, which reads as "already handled," but Enter on either button still
 toggled the header's `open` state until the target guard was added. Evidence:
-client/src/app/repos/[repoId]/pulls/[number]/_components/RunTraceDrawer/_components/PromptBlock/PromptBlock.tsx:35
+client/src/app/repos/[repoId]/pulls/[number]/_components/RunTraceDrawer/_components/PromptBlock/PromptBlock.tsx:36
 
 ## Tool & Library Notes
 
@@ -84,6 +84,22 @@ themselves, which is why only `pnpm dev` / `pnpm build` ever saw the breakage. I
 `@devdigest/shared` normally; if such an import fails to resolve, suspect that config line was
 removed rather than reaching for a deep import.
 Evidence: client/next.config.mjs:10
+
+**2026-09-25** — A Next.js special file (`page.tsx`, `layout.tsx`, `not-found.tsx`, `loading.tsx`,
+`template.tsx`) that imports anything from `@devdigest/ui` and lacks `"use client"` crashes every
+route it applies to with `Super expression must either be null or a function`, not a targeted error —
+`not-found.tsx` had no directive, imported only `Icon`, and that was enough to take the whole app
+down, because the barrel (`vendor/ui/index.ts`) re-exports `./charts` unconditionally, and
+`charts/LineChart.tsx` imports `recharts`, a client-only library whose class components can't
+evaluate in the RSC module graph. `error.tsx`/`global-error.tsx` are safe from this because Next
+itself refuses to build them without `"use client"`; `not-found.tsx` has no such enforcement, so nothing
+catches a missing directive there. Confirmed with a fresh `rm -rf .next` restart (not a stale-cache
+artifact). Critically, `pnpm run build` stayed green throughout and even prerendered `/_not-found` as
+static — production's prerender pass doesn't exercise every route's dynamic-error path the way `next
+dev` serving an actual 404 does, so a clean build is not evidence this class of bug is absent. Before
+adding a new file in this list, grep it for `"use client"` if it (even transitively, through a
+barrel) touches `@devdigest/ui`; a browser check of at least one broken/404 URL is the only thing
+that actually caught this. Evidence: client/src/app/not-found.tsx:1
 
 **2026-09-25** — A fake `EventSource` for testing `useRunEvents` must NOT route every `emit(kind,
 data)` through `onmessage`: real `EventSource.onmessage` fires only for a default SSE frame (no
