@@ -33,6 +33,12 @@ Fastify API and host of the review engine. The root `AGENTS.md` applies; this ad
   never fail the review.
 - New column: edit `db/schema/*.ts` → `pnpm db:generate` → `pnpm db:migrate`. If a contract field
   becomes required, the inline fixtures in `test/contracts.test.ts` break — fix them in the same change.
+- Imports point inward, and `pnpm arch` checks it: queries only in `repository*.ts`, pure rules in
+  `domain.ts`, another module reached only through its `types.ts` / `domain.ts`, concrete adapters
+  only in `platform/container.ts`. Existing violations sit in
+  `.dependency-cruiser-known-violations.json`; a new one fails. Regenerate that file
+  (`pnpm arch:baseline`) only in a change that fixes one — never to let a new one through. Where
+  each kind of code goes: the `onion-architecture` skill.
 
 ## Naming (server-only)
 
@@ -49,4 +55,5 @@ Fastify API and host of the review engine. The root `AGENTS.md` applies; this ad
 pnpm db:generate | db:migrate | db:seed            # migrations are NOT applied on boot; seed is idempotent
 pnpm exec vitest run --exclude '**/*.it.test.ts'   # unit, no Docker
 pnpm exec vitest run .it.test                      # integration, real Postgres — self-skips without Docker
+pnpm arch                                          # onion dependency rules; exits 1 on a new violation
 ```

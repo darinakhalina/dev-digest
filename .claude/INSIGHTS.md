@@ -39,6 +39,11 @@ question, one of three moved a component blind on another, and each spent 18–1
 600 words. Written from a best-practices list instead, it would have spent most of its tokens on
 what agents already did right. The baseline prompt, both result tables and the three rules it
 produced are in the skill's README. Evidence: .claude/skills/frontend-ui-architecture/README.md
+The with-skill run must not be able to tell it is a test. For `onion-architecture` the same prompt
+file was reused under the name `onion-baseline-prompt.md`; all three agents read "baseline", chose
+not to load the skill, and said so — three runs that measured nothing. Give the task file a neutral
+name, and check each transcript for the `Skill` call before counting a run as "with the skill".
+Evidence: .claude/skills/onion-architecture/README.md
 
 ## What Doesn't Work
 

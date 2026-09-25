@@ -9,6 +9,7 @@ Reusable AI skills that provide specialized knowledge and workflows. They live i
 | [fastify-best-practices](fastify-best-practices/SKILL.md) | Backend | Fastify routes, plugins, JSON-schema validation, error handling |
 | [drizzle-orm-patterns](drizzle-orm-patterns/SKILL.md) | Backend | Drizzle schema, queries, relations, transactions, migrations |
 | [postgresql-table-design](postgresql-table-design/SKILL.md) | Backend | Postgres schema design, data types, indexing, constraints |
+| [onion-architecture](onion-architecture/SKILL.md) | Backend | Which ring server code belongs to and which way imports point — queries, domain rules, adapters, cross-module access; `pnpm arch` gate |
 | [next-best-practices](next-best-practices/SKILL.md) | Frontend | Next.js App Router, RSC boundaries, data fetching, optimization |
 | [react-best-practices](react-best-practices/SKILL.md) | Frontend | React anti-patterns, state management, hooks rules |
 | [frontend-ui-architecture](frontend-ui-architecture/SKILL.md) | Frontend | Where client code lives and which way imports point — placement, promotion to shared, logic layers |
