@@ -3,6 +3,7 @@
 import React, { useCallback } from "react";
 import { Icon, Avatar, Badge, Button, Tabs } from "@devdigest/ui";
 import { RunReviewDropdown } from "../RunReviewDropdown";
+import { isClosedOrMerged, statusTone } from "@/lib/pr-status";
 import { s } from "./styles";
 import type { PrDetail } from "@/lib/types";
 
@@ -36,12 +37,7 @@ export function PrDetailHeader({
     onRunsStarted();
   }, [onRunsStarted]);
 
-  const statusColor =
-    pr.status === "merged"
-      ? "var(--ok)"
-      : pr.status === "closed"
-        ? "var(--stale)"
-        : "var(--warn)";
+  const statusColor = statusTone(pr.status);
 
   return (
     <div style={s.root}>
@@ -92,14 +88,14 @@ export function PrDetailHeader({
           {prId && (
             <RunReviewDropdown
               prId={prId}
-              warnMerged={pr.status === "merged" || pr.status === "closed"}
+              warnMerged={isClosedOrMerged(pr.status)}
               onRunStart={handleRunStart}
               onRunsStarted={handleRunsStarted}
             />
           )}
         </div>
       </div>
-      {(pr.status === "merged" || pr.status === "closed") && (
+      {isClosedOrMerged(pr.status) && (
         <div style={s.staleBanner}>
           <Icon.AlertTriangle size={13} style={{ color: "var(--warn)", flexShrink: 0 }} />
           <span>

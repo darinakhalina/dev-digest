@@ -3,9 +3,9 @@
 import React, { useCallback } from "react";
 import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
-import { RunHistory } from "../RunHistory/RunHistory";
+import { RunHistory } from "../RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
-import { countsBySeverity } from "../FindingsPanel/helpers";
+import { countsBySeverity } from "@/lib/severity";
 import { compareFindings } from "@/lib/findings";
 import type { FindingPreviewItem } from "@/components/finding-preview";
 import { s } from "./styles";

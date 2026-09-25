@@ -8,8 +8,9 @@ import { Toggle, EmptyState, SeverityBadge, SEV } from "@devdigest/ui";
 import type { FindingRecord } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
 import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
-import { KEY_TO_ACTION, SEVERITIES } from "./constants";
-import { countsBySeverity, visibleFindings } from "./helpers";
+import { KEY_TO_ACTION } from "./constants";
+import { SEVERITIES, countsBySeverity } from "@/lib/severity";
+import { visibleFindings } from "./helpers";
 import { s } from "./styles";
 import { hasModifier, isTextInput } from "@/lib/keyboard";
 

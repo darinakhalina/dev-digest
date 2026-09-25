@@ -1,8 +1,46 @@
-/* hooks/ barrel — every React Query hook over the F1/feature APIs.
-   Import from "@/lib/hooks" for the platform hooks (settings/repos/pulls/context)
-   or from a domain file directly (e.g. "@/lib/hooks/reviews") — both resolve here. */
-export * from "./core";
-export * from "./agents";
-export * from "./reviews";
-export * from "./trace";
-export * from "./repo-intel";
+export {
+  useSettings,
+  useUpdateSettings,
+  useTestConnection,
+  useSecretsStatus,
+  useRepos,
+  useAddRepo,
+  useRefreshRepo,
+  useDeleteRepo,
+  usePulls,
+  usePullDetail,
+  useContextFiles,
+  useReindexContext,
+} from "./core";
+export {
+  useAgents,
+  useAgent,
+  useCreateAgent,
+  useUpdateAgent,
+  useDeleteAgent,
+  useProviderModels,
+  type CreateAgentInput,
+  type UpdateAgentInput,
+} from "./agents";
+export {
+  usePrActiveRuns,
+  usePrRuns,
+  usePrReviews,
+  useDeleteRun,
+  useCancelRun,
+  useDeleteReview,
+  usePrComments,
+  useCreatePrComment,
+  useRunReview,
+  useFindingAction,
+  useRunEvents,
+  type ActiveRun,
+  type CreateCommentInput,
+  type RunReviewInput,
+} from "./reviews";
+export { useRunTrace } from "./trace";
+export {
+  useRepoIntelStatus,
+  useResyncRepoIntel,
+  type RepoIntelState,
+} from "./repo-intel";

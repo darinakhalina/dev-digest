@@ -6,6 +6,7 @@ import { Badge, Icon, CircularScore, SeverityBadge, type IconName } from "@devdi
 import type { RunSummary, PrCommit } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/run-cost-badge";
 import { SEVERITIES } from "@/lib/severity";
+import { isDeletable, isSettled, runOutcome, type RunOutcome } from "@/lib/run-status";
 import { FindingPreviewPanel, type FindingPreviewItem } from "@/components/finding-preview";
 
 /**
@@ -22,20 +23,18 @@ import { FindingPreviewPanel, type FindingPreviewItem } from "@/components/findi
 
 type Outcome = { key: string; color: string; bg: string; icon: IconName };
 
+const OUTCOME_META: Record<RunOutcome, Omit<Outcome, "key">> = {
+  running: { color: "var(--accent)", bg: "var(--accent-bg)", icon: "RefreshCw" },
+  error: { color: "var(--crit)", bg: "var(--crit-bg)", icon: "XCircle" },
+  cancelled: { color: "var(--text-muted)", bg: "var(--bg-hover)", icon: "X" },
+  rejected: { color: "var(--crit)", bg: "var(--crit-bg)", icon: "XCircle" },
+  reviewed: { color: "var(--warn)", bg: "var(--warn-bg)", icon: "MessageSquare" },
+  approved: { color: "var(--ok)", bg: "var(--ok-bg)", icon: "CheckCircle" },
+};
+
 function outcomeOf(run: RunSummary): Outcome {
-  const status = run.status ?? "";
-  if (status === "running")
-    return { key: "running", color: "var(--accent)", bg: "var(--accent-bg)", icon: "RefreshCw" };
-  if (status === "failed")
-    return { key: "error", color: "var(--crit)", bg: "var(--crit-bg)", icon: "XCircle" };
-  if (status === "cancelled")
-    return { key: "cancelled", color: "var(--text-muted)", bg: "var(--bg-hover)", icon: "X" };
-  // Settled ("done"): color by the deterministic outcome.
-  if ((run.blockers ?? 0) > 0)
-    return { key: "rejected", color: "var(--crit)", bg: "var(--crit-bg)", icon: "XCircle" };
-  if ((run.findings_count ?? 0) > 0)
-    return { key: "reviewed", color: "var(--warn)", bg: "var(--warn-bg)", icon: "MessageSquare" };
-  return { key: "approved", color: "var(--ok)", bg: "var(--ok-bg)", icon: "CheckCircle" };
+  const key = runOutcome(run);
+  return { key, ...OUTCOME_META[key] };
 }
 
 const rowStyle: React.CSSProperties = {
@@ -159,7 +158,7 @@ export function RunHistory({
 
         const r = item.run;
         const o = outcomeOf(r);
-        const settled = r.status === "done";
+        const settled = isSettled(r.status);
         const counts = severityByRun?.[r.run_id];
         const present = counts ? SEVERITIES.filter((l) => (counts[l] ?? 0) > 0) : [];
         const previews = previewsByRun?.[r.run_id] ?? [];
@@ -196,7 +195,7 @@ export function RunHistory({
                   {r.provider}/{r.model}
                 </span>
               </div>
-              {r.status === "failed" && r.error && (
+              {runOutcome(r) === "error" && r.error && (
                 <div
                   style={{ fontSize: 12, color: "var(--crit)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                   title={r.error}
@@ -277,7 +276,7 @@ export function RunHistory({
             >
               <Icon.FileText size={13} />
             </button>
-            {onDelete && r.status !== "running" && (
+            {onDelete && isDeletable(r.status) && (
               <span
                 role="button"
                 aria-label={t("timeline.deleteRun")}

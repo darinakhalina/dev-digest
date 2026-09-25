@@ -1,7 +1,6 @@
 import type { IconName } from "@devdigest/ui";
 import type { Verdict } from "@devdigest/shared";
 
-/** Per-verdict visual meta. `labelKey` resolves under the `verdict` namespace. */
 export const VERDICT_META: Record<
   Verdict,
   { c: string; bg: string; icon: IconName; labelKey: string }

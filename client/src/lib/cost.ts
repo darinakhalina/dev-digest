@@ -4,8 +4,12 @@ const MAX_TO_FIXED_DIGITS = 20;
  *  "—" means "we don't know", "$0.00" means "we know it was free". A value that
  *  cannot be a cost (negative, NaN, Infinity — all storable in float8) is "we
  *  don't know" too, because rendering it would state a price we never had. */
+export function isKnownCost(usd: number | null | undefined): usd is number {
+  return usd != null && Number.isFinite(usd) && usd >= 0;
+}
+
 export function formatCost(usd: number | null | undefined): string {
-  if (usd == null || !Number.isFinite(usd) || usd < 0) return "—";
+  if (!isKnownCost(usd)) return "—";
   if (usd === 0) return "$0.00";
 
   const wanted = usd >= 1 ? 2 : Math.floor(-Math.log10(usd)) + 2;

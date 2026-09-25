@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { SeverityBadge, CategoryTag } from "@devdigest/ui";
+import { SeverityBadge, CategoryTag, ConfidenceNum } from "@devdigest/ui";
 import type { Severity, FindingCategory } from "@devdigest/shared";
 
 export interface FindingPreviewItem {
@@ -87,7 +87,7 @@ export function FindingPreviewPanel({
               <span className="mono">
                 {it.file}:{it.line}
               </span>
-              <span>{Math.round(it.confidence * 100)}% conf</span>
+              <ConfidenceNum value={it.confidence} />
             </div>
             <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{it.description}</div>
           </div>

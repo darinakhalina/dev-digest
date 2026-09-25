@@ -12,6 +12,7 @@ import {
   AutoTriggerStatus,
 } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
+import { OPEN_REVIEW_STATUSES } from "@/lib/pr-status";
 import { RepoNotFound } from "@/components/repo-not-found";
 import { usePulls, useRefreshRepo } from "@/lib/hooks";
 import { useActiveRepo, useRepoNotFound } from "@/lib/repo-context";
@@ -22,7 +23,7 @@ import { PRRow } from "./_components/PRRow";
 import { FilterBar } from "./_components/FilterBar";
 
 /** Open PRs carry a derived review status; everything else is merged/closed. */
-const OPEN_STATUSES = new Set(["needs_review", "reviewed", "stale"]);
+
 
 export default function PullsPage() {
   const t = useTranslations("prReview");
@@ -57,7 +58,7 @@ export default function PullsPage() {
       return sort === "oldest" ? ta - tb : tb - ta;
     });
   const repoName = activeRepo?.full_name ?? repoId;
-  const openCount = (pulls ?? []).filter((p) => OPEN_STATUSES.has(p.status)).length;
+  const openCount = (pulls ?? []).filter((p) => OPEN_REVIEW_STATUSES.has(p.status)).length;
   const needsReviewCount = (pulls ?? []).filter((p) => p.status === "needs_review").length;
 
   // Stale/unknown :repoId → friendly empty state instead of a 404 error.

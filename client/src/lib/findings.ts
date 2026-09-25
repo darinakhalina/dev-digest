@@ -1,4 +1,4 @@
-import { SEVERITY_ORDER } from "./severity";
+import { severityRank } from "./severity";
 
 export interface OrderableFinding {
   severity: string;
@@ -10,7 +10,7 @@ export interface OrderableFinding {
 
 export function compareFindings(a: OrderableFinding, b: OrderableFinding): number {
   return (
-    (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9) ||
+    severityRank(a.severity) - severityRank(b.severity) ||
     b.confidence - a.confidence ||
     a.file.localeCompare(b.file) ||
     a.start_line - b.start_line ||

@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { formatCost } from "@/lib/cost";
+import { formatCost, isKnownCost } from "@/lib/cost";
+import { formatExactTokenCount } from "@/lib/tokens";
 
 type Props =
   | { variant: "compact"; cost: number | null | undefined }
@@ -16,7 +17,7 @@ const numeric: React.CSSProperties = { fontVariantNumeric: "tabular-nums" };
 const muted: React.CSSProperties = { ...numeric, color: "var(--text-muted)" };
 
 export function RunCostBadge(props: Props) {
-  const priced = props.cost != null;
+  const priced = isKnownCost(props.cost);
   const style = priced ? numeric : muted;
 
   if (props.variant === "compact") {
@@ -28,7 +29,7 @@ export function RunCostBadge(props: Props) {
 
   return (
     <span style={style}>
-      {totalTokens.toLocaleString("en-US")} tok · {formatCost(props.cost)}
+      {formatExactTokenCount(totalTokens)} tok · {formatCost(props.cost)}
     </span>
   );
 }
