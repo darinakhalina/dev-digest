@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { RunRequest } from '@devdigest/shared';
+import { RunRequest, ReviewRecord, RunTrace } from '@devdigest/shared';
 import type { RunEvent } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
@@ -129,7 +129,7 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
   });
 
   // ---- Run trace (single document; A5 enriches with multi-agent/stats) ----
-  app.get('/runs/:id/trace', { schema: { params: IdParams } }, async (req) => {
+  app.get('/runs/:id/trace', { schema: { params: IdParams, response: { 200: RunTrace } } }, async (req) => {
     const { workspaceId } = await getContext(container, req);
     const trace = await service.getRunTrace(workspaceId, req.params.id);
     if (!trace) throw new NotFoundError('Run trace not found');
@@ -137,10 +137,14 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
   });
 
   // ---- Reads --------------------------------------------------------------
-  app.get('/pulls/:id/reviews', { schema: { params: IdParams } }, async (req) => {
-    const { workspaceId } = await getContext(container, req);
-    return service.reviewsForPull(workspaceId, req.params.id);
-  });
+  app.get(
+    '/pulls/:id/reviews',
+    { schema: { params: IdParams, response: { 200: z.array(ReviewRecord) } } },
+    async (req) => {
+      const { workspaceId } = await getContext(container, req);
+      return service.reviewsForPull(workspaceId, req.params.id);
+    },
+  );
 
   // ---- Delete a whole review run (one agent's pass) + its findings --------
   app.delete('/reviews/:id', { schema: { params: IdParams } }, async (req) => {

@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import type { PrMeta, PrDetail, GitHubClient, PrReviewComment } from '@devdigest/shared';
-import { PrCommentInput } from '@devdigest/shared';
+import type { GitHubClient, PrDetail, PrReviewComment } from '@devdigest/shared';
+import { PrCommentInput, PrMeta } from '@devdigest/shared';
+import { z } from 'zod';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError } from '../../platform/errors.js';
@@ -25,10 +26,14 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     app.log.warn({ err }, 'GitHub PR sync/detail refresh skipped (no token / offline); serving persisted data'),
   );
 
-  app.get('/repos/:id/pulls', { schema: { params: IdParams } }, async (req): Promise<PrMeta[]> => {
-    const { workspaceId } = await getContext(container, req);
-    return pulls.list(workspaceId, req.params.id);
-  });
+  app.get(
+    '/repos/:id/pulls',
+    { schema: { params: IdParams, response: { 200: z.array(PrMeta) } } },
+    async (req): Promise<PrMeta[]> => {
+      const { workspaceId } = await getContext(container, req);
+      return pulls.list(workspaceId, req.params.id);
+    },
+  );
 
   app.get('/pulls/:id', { schema: { params: IdParams } }, async (req): Promise<PrDetail> => {
     const { workspaceId } = await getContext(container, req);

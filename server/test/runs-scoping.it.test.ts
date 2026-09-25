@@ -37,9 +37,19 @@ d('run endpoints stay inside the caller workspace — SPEC-2026-09-25-security-h
       .returning();
     ownRunId = ownRun!.id;
     foreignRunId = foreignRun!.id;
+    const trace = {
+      config: { agent: 'a', model: 'm', source: 'local' },
+      stats: { duration_ms: 1, tokens_in: 1, tokens_out: 1, findings: 0, grounding: '0/0 passed' },
+      prompt_assembly: { system: 's', user: 'u' },
+      tool_calls: [],
+      raw_output: '',
+      memory_pulled: [],
+      specs_read: [],
+      log: [],
+    };
     await pg.handle.db.insert(t.runTraces).values([
-      { runId: ownRunId, trace: { run_id: ownRunId } },
-      { runId: foreignRunId, trace: { run_id: foreignRunId } },
+      { runId: ownRunId, trace },
+      { runId: foreignRunId, trace },
     ]);
   });
   afterAll(async () => {
