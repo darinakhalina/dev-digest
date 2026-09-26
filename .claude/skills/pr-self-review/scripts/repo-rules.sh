@@ -16,9 +16,42 @@ command -v jq >/dev/null 2>&1 || { echo "repo-rules: jq not found" >&2; exit 2; 
 BASE="$(git merge-base "$BASE_REF" HEAD 2>/dev/null)" || { echo "repo-rules: no merge base with ${BASE_REF}" >&2; exit 2; }
 
 found=0
+
+# Targeted, per-rule suppression: PR_SELF_REVIEW_ALLOW="rule=reason,rule=reason".
+# A reason is mandatory — a bare rule name is refused, because a suppression nobody has to
+# justify is how a rule quietly stops existing. Suppressed findings are still printed, just
+# not counted, so they stay auditable instead of vanishing.
+# This exists because legitimate violations are real: commit 2006964 renamed five migrations
+# on purpose, to repair a broken journal.
+allow_reason() { # rule -> prints the reason and returns 0 when suppressed
+  local entry rule reason
+  local IFS=','
+  local entries
+  read -ra entries <<< "${PR_SELF_REVIEW_ALLOW:-}"
+  for entry in "${entries[@]:-}"; do
+    [ -n "$entry" ] || continue
+    rule="${entry%%=*}"
+    [ "$rule" = "$1" ] || continue
+    reason="${entry#*=}"
+    if [ "$reason" = "$entry" ] || [ -z "$reason" ]; then
+      echo "repo-rules: PR_SELF_REVIEW_ALLOW entry '$rule' carries no reason — use rule=reason" >&2
+      return 1
+    fi
+    printf '%s' "$reason"
+    return 0
+  done
+  return 1
+}
+
 emit() { # rule, file, issue, fix
+  local reason
+  if reason="$(allow_reason "$1")"; then
+    jq -nc --arg r "$1" --arg f "$2" --arg i "$3" --arg x "$4" --arg w "$reason" \
+      '{rule:$r, severity:"SUPPRESSED", suppressed:true, reason:$w, file:$f, issue:$i, fix:$x, source:"repo-rules.sh"}'
+    return 0
+  fi
   jq -nc --arg r "$1" --arg f "$2" --arg i "$3" --arg x "$4" \
-    '{rule:$r, severity:"CRITICAL", file:$f, issue:$i, fix:$x, source:"repo-rules.sh"}'
+    '{rule:$r, severity:"CRITICAL", suppressed:false, file:$f, issue:$i, fix:$x, source:"repo-rules.sh"}'
   found=1
 }
 
