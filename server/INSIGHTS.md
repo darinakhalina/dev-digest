@@ -68,6 +68,17 @@ with "expected 'failed' to be 'cancelled'", which reads as a bug in the cancel p
 once, `await app.ready()`, and only then insert the runs the test needs.
 Evidence: server/test/runs-scoping.it.test.ts:24
 
+**2026-09-26** — `timeoutMs` on `completeStructured` bounds ONE ATTEMPT, not the call, and two
+multipliers sit around it: `withRetry` retries the HTTP request, and the reprompt-on-schema-failure
+loop runs the whole thing again up to `maxRetries + 1` times. Worst case is their product. A
+conventions scan with `timeoutMs: 90_000` therefore hung for six minutes and held an in-process
+lock the whole time, while the log showed only an `incoming request` that never completed — nothing
+names the timeout, so it reads as a dead provider rather than a budget that was never what it
+looked like. Any caller whose own deadline matters (anything running inside an HTTP request rather
+than a job) must wrap the call in a single deadline of its own and treat `timeoutMs` as a
+per-attempt hint; `Promise.race` against one timer is enough, since releasing the caller and the
+lock is the point, not cancelling the socket. Evidence: server/src/adapters/llm/openai.ts:95
+
 ## Session Notes
 
 **2026-09-19** — `RunStats` is read out of the `run_traces` jsonb document, `RunSummary` off a
