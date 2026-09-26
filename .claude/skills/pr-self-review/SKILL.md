@@ -2,6 +2,7 @@
 name: pr-self-review
 description: Use when about to push, open or update a pull request in this repository, or when asked to self-review local changes before a PR — including "check my changes", "am I ready to push", "review before the PR". Also invoked by the pre-push gate.
 user-invocable: true
+disable-model-invocation: true
 allowed-tools: Bash, Read, Grep, Glob, Agent, Write
 metadata:
   version: "1.0.0"
@@ -30,6 +31,13 @@ Say this plainly, because getting it wrong is how a gate becomes theatre:
 
 Only the third actually forbids a merge. The first two are fast feedback. Never report a local
 PASS as "safe to merge" — report it as "the local gate found nothing".
+
+## Invocation
+
+`disable-model-invocation: true` is deliberate: the gate runs when a person asks for it
+(`/pr-self-review`), never because a model judged the moment right. A review that starts on its own
+burns tokens on half-finished trees, and a verdict nobody asked for is a verdict nobody reads. The
+push hook only reminds you it is missing — it never starts the review itself.
 
 ## Procedure
 
