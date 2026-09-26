@@ -44,8 +44,14 @@ run proportional to what actually changed.
 
 ## 3. Skill map
 
-Subagents do not inherit the caller's skills, so each one preloads its own. Give a subagent only
-its slice of files and only these skills.
+Subagents do not inherit the caller's skills, so each one has to load its own. Give a subagent only
+its slice of files and only these skills, and tell it to invoke them with the Skill tool as its
+first action — a bucket's review is only as good as the skills that were actually in context for it.
+
+The cleaner mechanism is the `skills:` field in an agent definition, which injects the full skill
+body rather than the description. It needs `.claude/agents/` to exist, and it does not yet here, so
+today the subagent loads them itself. Until those definitions exist, verify in the subagent's
+report that it named the skills it loaded; an unverified claim of routing is the same as no routing.
 
 | Bucket | Skills |
 |---|---|

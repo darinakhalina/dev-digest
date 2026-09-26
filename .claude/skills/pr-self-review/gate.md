@@ -23,6 +23,14 @@ Then, per package that has changed files, in this order — first non-zero exit 
 | 3 | tests | `pnpm test` | always |
 | 4 | bundler | `pnpm build` | `client/**` changed — the only check that exercises the bundler |
 
+Step 4 has a precondition the gate must respect: `next dev` and `next build` share `.next`, so
+building while a dev server is running overwrites its chunks and kills it with an error that names
+a missing vendor chunk and says nothing about the cause (`client/AGENTS.md`). Check first —
+`lsof -nP -iTCP:3000 -sTCP:LISTEN` — and if a dev server holds the port, **skip the build and say
+so in the report** (`bundler: skipped, dev server on :3000`). Breaking the developer's running
+environment to run a check is not an acceptable trade, and a skipped check that announces itself
+is exactly the §7 rule applied to the gate's own steps.
+
 `pnpm arch` carries a ratchet: the baseline in `.dependency-cruiser-known-violations.json` is
 currently empty and may only shrink. **Regenerating it so a new violation passes is itself a
 CRITICAL**, and it is visible in the diff — check for it.

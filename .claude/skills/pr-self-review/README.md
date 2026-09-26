@@ -87,8 +87,27 @@ Built: the three deterministic scripts, the `PreToolUse` wiring, and the skill d
 Every branch of `check-gate.sh` and every rule in `repo-rules.sh` was exercised against a
 deliberately broken tree before commit.
 
+Run end to end once, on the acceptance fixture from `PLAN.md` §10 — `not-found.tsx` with its
+client directive removed. It produced `BLOCKED — 1 critical` and the hook then refused the push.
+Four defects surfaced during that run and were fixed:
+
+- The hook matched `git push` as a **substring**, so a command that merely quoted the phrase was
+  denied. It now parses the command: splits on shell separators, drops `VAR=value` prefixes, and
+  reads the first real word, so `git -C dir push` and `cd x && git push` are caught while
+  `printf 'git push'` and `git commit -m 'git push'` are not.
+- The hook is live **without restarting the session** — the earlier note to the contrary was wrong.
+- Step 4 (`pnpm build`) would have killed a running dev server, since both share `.next`. It is now
+  conditional on port 3000 being free, and the skip is reported rather than silent.
+- `routing.md` assumed `skills:` preloading, which needs `.claude/agents/`; that directory does not
+  exist, so the routing is currently carried out by the subagent loading its own skills.
+
 Not built yet: the CI layer (`pr-self-review / gate` workflow + required check), the `pre-push`
-hook, and the review cache. `PLAN.md` §9 carries the phasing.
+hook, the review cache, and the `.claude/agents/` definitions. `PLAN.md` §9 carries the phasing.
+
+One caveat about that acceptance run: `routing.md` feeds the touched package's `INSIGHTS.md` to the
+reviewer, and `client/INSIGHTS.md` already documents this exact bug. The catch may therefore have
+come from memory rather than from analysis. A fixture the repository has never seen is needed
+before claiming the review step detects anything new.
 
 ## Changelog
 

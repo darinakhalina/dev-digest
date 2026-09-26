@@ -40,10 +40,46 @@ fi
 
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")"
 
-case "$cmd" in
-  *"git push"*|*"gh pr create"*|*"gh pr merge"*) ;;
-  *) allow ;;
-esac
+# Match the command being RUN, not the string appearing anywhere in it. A substring test
+# denies `printf '...git push...'`, which pushes nothing — and a gate that cries wolf is one
+# people learn to override. Split on shell separators, drop leading VAR=value assignments,
+# then read the first real word of each segment.
+is_push_command() {
+  local seg first matches=0
+  local segments
+  segments="$(printf '%s' "$1" | awk '{gsub(/&&|\|\||[;|]|\n/, "\n"); print}')"
+  set -f
+  while IFS= read -r seg; do
+    seg="${seg#"${seg%%[![:space:]]*}"}"
+    while case "$seg" in [A-Za-z_]*=*) [ "${seg%%=*}" = "${seg%%[![:alnum:]_]*}" ] ;; *) false ;; esac; do
+      case "$seg" in *[[:space:]]*) seg="${seg#*[[:space:]]}"; seg="${seg#"${seg%%[![:space:]]*}"}" ;; *) seg="" ; break ;; esac
+    done
+    # shellcheck disable=SC2086
+    set -- $seg
+    [ $# -gt 0 ] || continue
+    case "$1" in
+      git)
+        shift
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            -C|-c) shift 2 || break ;;
+            -*) shift ;;
+            *) break ;;
+          esac
+        done
+        [ "${1:-}" = "push" ] && matches=1
+        ;;
+      gh)
+        [ "${2:-}" = "pr" ] || continue
+        case "${3:-}" in create|merge) matches=1 ;; esac
+        ;;
+    esac
+  done <<< "$segments"
+  set +f
+  [ "$matches" = 1 ]
+}
+
+is_push_command "$cmd" || allow
 
 if [ -n "${PR_SELF_REVIEW_OVERRIDE:-}" ]; then
   echo "pr-self-review: overridden — reason: ${PR_SELF_REVIEW_OVERRIDE}" >&2
