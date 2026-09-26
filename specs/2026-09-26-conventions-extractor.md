@@ -7,9 +7,10 @@ Cross-package: `server`, `client`, plus the authored skills under `.claude/`.
 A repository teaches its rules by repetition. Every route returns the same result type, every query
 goes through one module, every component is named the same way — the rule is stated hundreds of
 times in code and nowhere in prose. A reviewer that has never been told the rule cannot flag a
-change that breaks it, and this repository has already measured that: a reviewer shown the repo's
-structure but none of its rules produced three generic findings and zero project ones on a pull
-request that violated a house convention outright.
+change that breaks it, and this repository has already measured that, in an experiment its own
+server-side insights record: a reviewer shown the repo's structure but none of its rules produced
+three generic findings and zero project ones on a pull request that violated a house convention
+outright.
 
 The previous feature gave a rule somewhere to live. It did not help anyone notice the rule. Today
 the only path from "this codebase has a convention" to "an agent enforces it" runs through a person
@@ -78,13 +79,15 @@ result or shows the first one was luck.
   reports the same commit both times.
 - **AC-2** — The sampled set SHALL include the repository's own configuration files where they
   exist — at least its linter, formatter and TypeScript configuration — alongside its
-  highest-ranked source files.
+  highest-ranked source files, of which it SHALL take at most twelve.
   *Check:* a working copy carrying a linter config has that config named among the sampled files; a
-  working copy with no configuration at all still scans.
+  working copy with no configuration at all still scans; a large repository contributes twelve
+  source files, not more.
 - **AC-3** — The ranking of source files SHALL come from the existing index rather than being
-  recomputed here.
-  *Check:* a repository that has never been indexed yields no ranked source files, and the scan
-  says so instead of silently sampling arbitrary ones.
+  recomputed here, and WHEN the index has nothing for this repository the scan SHALL say so in its
+  own recorded summary rather than proceeding as though it had sampled normally.
+  *Check:* scan a repository that was never indexed; the recorded sample count reflects only
+  configuration files, and the reason is readable afterwards without consulting a log.
 - **AC-4** — IF the repository has no local working copy, THEN the system SHALL refuse the scan and
   SHALL state that as the reason, and SHALL NOT record a scan.
   *Check:* request a scan against a repository that was never cloned; the list stays empty and the
@@ -94,109 +97,148 @@ result or shows the first one was luck.
   *Check:* request a known scan while scoped to another workspace; the answer is a not-found. Ask
   to change a candidate through a different repository of the same workspace; that is a not-found
   too, rather than quietly succeeding.
-- **AC-6** — The material sent to the model SHALL be bounded in total size, and each sampled file
-  SHALL be enclosed so that nothing in its contents can be read as part of the surrounding
-  instructions.
-  *Check:* a repository whose highest-ranked file is enormous still produces a scan of predictable
-  size; a file whose text contains the enclosing delimiter still occupies exactly one block.
-- **AC-7** — WHILE a scan of a repository is running, a second scan of that repository SHALL NOT
-  begin.
-  *Check:* request two scans in quick succession; one runs, the other is told one is already in
-  progress, and only one scan is recorded.
-- **AC-8** — A scan SHALL record what it cost — which model answered, and the token and money
-  figures where the provider reported them.
+- **AC-6** — The material sent to the model SHALL be bounded and enclosed. No single sampled file
+  SHALL contribute more than four hundred lines, no scan SHALL send more than one hundred and fifty
+  thousand characters in total, a file cut short SHALL say so where it was cut, and each file SHALL
+  sit inside a delimiter its own contents cannot reproduce.
+  *Check:* a repository whose highest-ranked file is enormous still produces a scan within those
+  bounds, and the prompt shows the file marked as truncated; a file whose text contains the
+  delimiter still occupies exactly one block.
+- **AC-7** — WHILE a scan of a repository is running, a second scan of that repository SHALL be
+  refused. The refusal SHALL rest on nothing durable: it holds only for as long as the process
+  serving the first scan is alive, and a process that dies mid-scan SHALL leave nothing that has to
+  be cleared before the next attempt.
+  *Check:* request two scans in quick succession; one runs, the other is refused, and one scan is
+  recorded. Kill the server mid-scan and scan again; it is accepted immediately.
+- **AC-8** — A scan SHALL record what it cost — which provider and model answered, and the token
+  and money figures where the provider reported them.
   *Check:* after a scan, those figures are readable without reconstructing them from a log.
+- **AC-9** — The model this feature reaches for by default SHALL be a cheap one.
+  *Check:* with no workspace override configured, a scan records a model from the same class the
+  repository already uses for its other cheap background work, not its most expensive.
+- **AC-10** — The feature SHALL be reachable: a navigation entry leads to a screen bound to the
+  repository being worked on.
+  *Check:* from a repository's pages, the entry is visible, leads to that repository's scans, and
+  is highlighted while there.
 
 ### Evidence, and refusing to take the model's word
 
-- **AC-9** — WHEN the model proposes a candidate, the system SHALL confirm against the sampled
-  working copy that the cited file exists and that the cited snippet occurs in it, and SHALL
-  discard the candidate if either check fails.
-  *Check:* a proposal naming a file that is not in the repository is absent from storage and from
-  the screen; so is one quoting code the file does not contain.
-- **AC-10** — The system SHALL derive a candidate's evidence line numbers from the match it
+- **AC-11** — WHEN the model proposes a candidate, the system SHALL confirm the cited snippet
+  against **the files it actually sampled**, and SHALL discard the candidate if the cited file was
+  not among them or the snippet is not in it. A file the model names but was never shown SHALL NOT
+  be opened to rescue a candidate.
+  *Check:* a proposal citing a real file that was not sampled is discarded, not verified.
+- **AC-12** — Matching SHALL tolerate a difference in indentation or run of spaces and nothing
+  else: lines are compared with leading, trailing and repeated whitespace collapsed, and must
+  otherwise be identical.
+  *Check:* a snippet re-indented by the model matches; a snippet with a renamed identifier or an
+  altered literal does not.
+- **AC-13** — The system SHALL derive a candidate's evidence line numbers from the match it
   verified, and SHALL NOT accept line numbers proposed by the model.
   *Check:* the stored range points at where the snippet really is, including when the model stated
   a different one.
-- **AC-11** — The cited path SHALL be resolved inside the scanned working copy and nowhere else.
+- **AC-14** — The cited path SHALL be resolved inside the scanned working copy and nowhere else.
   *Check:* a proposal whose path escapes the working copy, by traversal or by being absolute, is
   discarded rather than opened.
-- **AC-12** — A quotation too slight to identify one place in a file — a lone brace, a single
-  common token, whitespace — SHALL count as no evidence.
-  *Check:* a proposal quoting a closing brace is discarded, rather than citing wherever that brace
-  first happens to appear.
-- **AC-13** — WHERE a candidate is shown, the interface SHALL present its evidence as a file and
-  line range linking to that code at the scan's commit.
-  *Check:* the link opens the cited lines; it does not follow the branch, so a later commit does
-  not move it.
-- **AC-14** — A scan SHALL record how many proposals it discarded for want of evidence.
-  *Check:* a scan whose every proposal was discarded is distinguishable from a scan that was never
-  run, and the number is readable afterwards.
+- **AC-15** — A quotation SHALL count as evidence only if, ignoring blank lines at its edges, it
+  carries at least two non-blank lines or one line of at least twenty-four non-whitespace
+  characters; and a quotation made only of punctuation and brackets SHALL never count, whatever its
+  length.
+  *Check:* a proposal quoting a closing brace is discarded; so is one quoting `});`; a proposal
+  quoting a whole two-line statement is kept. Note this is a floor on substance, not on
+  uniqueness — a substantial snippet that appears twice is still evidence.
+- **AC-16** — WHERE a candidate is shown, the interface SHALL present its evidence as a file and
+  line range linking to that code at the scan's commit; IF that commit is not published, THEN the
+  reference SHALL still be shown as text rather than as a link that cannot resolve.
+  *Check:* the link opens the cited lines and does not follow the branch; scan an unpushed commit
+  and the citation is still readable, without a broken link.
+- **AC-17** — A scan SHALL record how many proposals it discarded for want of evidence, and that
+  number SHALL be visible on the screen that shows the scan.
+  *Check:* a scan whose every proposal was discarded is distinguishable, on screen, from a scan
+  that was never run.
 
 ### Deciding
 
-- **AC-15** — Every candidate SHALL begin undecided, SHALL be settable to kept or discarded one at
-  a time, and the decision SHALL survive a reload.
-  *Check:* decide on some, reload, the decisions are as left.
-- **AC-16** — A candidate's rule text SHALL be editable, and the edited text SHALL be what any
-  skill built from it carries.
-  *Check:* reword a rule, build a skill, the skill carries the new wording and not the original.
-- **AC-17** — The interface SHALL state how many of the listed candidates are currently kept.
-  *Check:* the count changes as decisions are made and matches the cards.
-- **AC-18** — WHEN a repository is scanned again, the system SHALL present the new scan's
-  candidates, SHALL NOT merge them with an earlier scan's decisions, and SHALL say plainly that
-  the earlier scan's decisions no longer apply.
-  *Check:* keep some candidates, re-scan; the new candidates are undecided and the interface warns
-  before the earlier set disappears rather than after.
+- **AC-18** — Every candidate SHALL begin undecided, SHALL be settable to kept or discarded one at
+  a time, SHALL be settable again to the other decision, and the decision SHALL survive a reload.
+  *Check:* keep one, discard it instead, reload; it is discarded.
+- **AC-19** — A candidate's rule text SHALL be editable, the edit SHALL survive a reload, and the
+  edited text SHALL be what any skill built from it carries.
+  *Check:* reword a rule, reload, the new wording is there; build a skill and it carries that
+  wording and not the original.
+- **AC-20** — Every candidate that survived verification in the latest scan SHALL be listed, and
+  the interface SHALL state how many of them are currently kept.
+  *Check:* the number of cards matches the scan's surviving count, and the kept count changes as
+  decisions are made.
+- **AC-21** — WHEN a repository is scanned again, the system SHALL warn before the earlier scan's
+  candidates are replaced, SHALL then present only the new scan's candidates, and SHALL NOT carry
+  the earlier decisions over.
+  *Check:* keep some candidates, ask to re-scan; the warning comes first, and afterwards the new
+  candidates are undecided.
 
 ### Becoming a skill
 
-- **AC-19** — WHEN a skill is built from a set of candidates, the system SHALL include only
-  candidates in the kept state, and SHALL refuse the request outright if any named candidate is not
-  kept.
-  *Check:* name a discarded candidate in the request directly, bypassing the interface; nothing is
-  created and the refusal says why.
-- **AC-20** — Before anything is stored, a person SHALL be able to read the proposed skill in full
-  and change its name, description, type, body and whether it is enabled; and SHALL be able to
-  abandon it leaving nothing behind.
-  *Check:* open the proposal, cancel, the skills list is unchanged.
-- **AC-21** — What is shown as the proposed skill and what would be stored SHALL be the same text,
-  produced by one definition rather than two agreeing ones.
+- **AC-22** — A person SHALL choose which of the kept candidates go into a given skill, rather than
+  every kept candidate being taken automatically.
+  *Check:* with four kept, build a skill from two of them; the other two are untouched and still
+  available.
+- **AC-23** — The system SHALL include only candidates in the kept state, and SHALL refuse the
+  request outright if any named candidate is not kept, saying which; a candidate that does not
+  exist, or belongs elsewhere, SHALL be refused as a distinct case.
+  *Check:* name a discarded candidate in the request directly, bypassing the interface; then name
+  an unknown one. Nothing is created either time, and the two refusals are told apart.
+- **AC-24** — The system SHALL propose a name derived from the repository, and a person SHALL be
+  able to read the proposed skill in full and change its name, description, type, body and whether
+  it is enabled, and SHALL be able to abandon it leaving nothing stored.
+  *Check:* open the proposal on a repository and the name is filled in and valid; cancel, and
+  neither a skill nor anything else new exists.
+- **AC-25** — What is shown as the proposed skill and what would be stored SHALL be the same text,
+  produced once, on the server, and sent to the screen to be read and edited.
   *Check:* accept the proposal unedited; the stored body matches what was on screen character for
   character.
-- **AC-22** — In the generated body, everything a candidate carries SHALL appear as content.
-  Nothing a candidate carries SHALL be able to introduce a heading, a section or a delimiter.
-  *Check:* a candidate whose rule or category text is itself a heading or a fence produces a body
-  with the same structure as one whose text is ordinary prose.
-- **AC-23** — A skill built this way SHALL record which files its evidence came from, and SHALL be
+- **AC-26** — In the generated body, everything a candidate carries — its rule, edited or not, and
+  its category — SHALL appear as content and SHALL NOT be able to introduce a heading, a section or
+  a delimiter. WHERE this conflicts with AC-19, this criterion wins: the person's wording is
+  preserved as text, not as structure.
+  *Check:* reword a rule to begin with a heading marker, build the skill; the body has the same
+  structure as one built from ordinary prose, and the wording is still legible inside it.
+- **AC-27** — A skill built this way SHALL record which files its evidence came from, and SHALL be
   indistinguishable in use from a hand-written one — listed, attached, ordered, enabled and traced
   by the same means, with no special case for its origin.
-  *Check:* attach it to an agent alongside a hand-written skill and reorder the two; both behave
-  identically.
-- **AC-24** — More than one skill SHALL be buildable from a single scan, and a candidate discarded
+  *Check:* read the stored skill and the evidence files are there; then attach it to an agent
+  alongside a hand-written skill and reorder the two, and both behave identically.
+- **AC-28** — A skill built this way SHALL be attachable to an agent from where it was created, and
+  SHALL then reach that agent's prompt on the next review.
+  *Check:* build one, attach it, run a review, and the completed run's record shows its body.
+- **AC-29** — More than one skill SHALL be buildable from a single scan, and a candidate discarded
   at the time SHALL be absent from every one of them.
   *Check:* build two skills from one scan; no discarded rule appears in either.
 
 ### The reviewer this is for
 
-- **AC-25** — An API Contract Reviewer agent SHALL exist with four attached skills covering
-  breaking changes to a published contract, changes to the shape of a response, when a change
-  demands a version bump, and how something is deprecated rather than quietly removed.
-  *Check:* the agent lists four skills and each names one of those four concerns.
-- **AC-26** — Each of those four SHALL state its rule directively, SHALL show one compliant and one
+- **AC-30** — An agent named **API Contract Reviewer** SHALL exist, and that exact name SHALL be
+  the one every part of the system uses for it.
+  *Check:* the agent appears under that name, and no test, seed or document refers to it by
+  another.
+- **AC-31** — It SHALL carry four attached skills, named for what each governs: breaking change,
+  response schema, semver discipline, deprecation policy.
+  *Check:* the agent lists four skills under those four names.
+- **AC-32** — Each SHALL state its rule directively, SHALL show one compliant and one
   non-compliant example, and SHALL say what it must *not* flag.
   *Check:* read each; a reader can classify both a new violation and a new false alarm from the
   examples alone.
-- **AC-27** — At least one of the four SHALL have arrived by import rather than being authored in
-  place.
-  *Check:* the agent lists it and it is marked as imported.
-- **AC-28** — GIVEN a pull request that renames a field in a response or changes a route's
-  signature, the agent WITH those skills SHALL report the breaking change citing file and line, and
-  the same agent WITHOUT them SHALL NOT report it.
-  *Check:* run both ways on the same pull request and compare the two finding lists.
-- **AC-29** — The agent SHALL be reachable under one name. Whatever name it is seeded with SHALL be
-  the name every other part of the system expects.
-  *Check:* nothing in the tree refers to it by a name it does not have.
+- **AC-33** — At least one of the four SHALL have arrived by import: offered as a file, previewed,
+  and only then stored.
+  *Check:* the stored skill's text is the file's text, and it was not present before the import —
+  not merely that it is labelled as imported.
+- **AC-34** — GIVEN a pull request that renames a field in a response or changes a route's
+  signature, the same agent SHALL report the breaking change on every run with those four skills
+  attached and enabled, and on no run with the same four detached, nothing else changed — same
+  agent, same version, same pull request, same model, three runs each way. Reporting it means a
+  finding whose cited file the pull request changed, whose cited lines lie inside that file's
+  changed lines, and whose text names the renamed field or the altered signature.
+  *Check:* run six times and compare. A split result is a real outcome and is reported as one —
+  re-rolling until the numbers come out right is how this criterion becomes a lie.
 
 ## Edge cases
 
@@ -226,6 +268,10 @@ result or shows the first one was luck.
   origin has no further authority over it.
 - The repository being scanned is this one. It is the most likely first target and the one where a
   wrong rule is most expensive, because it would then be enforced on its own future changes.
+- The only repository the seed creates has never been cloned, so it cannot be scanned at all. This
+  is the most likely way a first attempt fails, and it fails as a refusal about a missing working
+  copy rather than as anything mentioning conventions — worth knowing before concluding the
+  feature is broken.
 
 ## Non-functional
 
@@ -242,9 +288,11 @@ result or shows the first one was luck.
 - Reading the latest scan and its candidates should not need more than one round trip.
 - No new runtime dependency.
 - User-facing strings go through the existing translation files. The copy shipped for this feature
-  is **incomplete** — it describes a simpler flow with no discard, no scan summary and no skill
-  proposal — and extending it belongs to this change rather than being worked around with
-  hard-coded text.
+  is not merely incomplete, it is **wrong**: alongside the missing strings for discarding, for the
+  scan summary and for the whole skill proposal, it carries copy for a flow where accepting a
+  candidate turns it into a skill on the spot. That is not the flow specified here, and it must be
+  removed rather than left beside the new strings, because copy nobody deleted is copy someone
+  will wire back up.
 
 ## Cross-module interactions
 
@@ -256,7 +304,7 @@ result or shows the first one was luck.
   through that ownership and never writes skill storage itself; the only thing it adds to that
   module's surface is the ability to record where a skill's evidence came from.
 - The agents module already owns attaching, ordering and enabling. Nothing here changes it, and
-  AC-23 is the statement that nothing needed to.
+  AC-27 is the statement that nothing needed to.
 - `reviewer-core` learns nothing about conventions, scans or extraction. A generated skill reaches
   it as text, exactly as a hand-written one does.
 - `client` reads and writes only through the HTTP surface.
@@ -267,16 +315,25 @@ result or shows the first one was luck.
   three-state decision rather than a boolean, the verified line range, the category the model
   assigned, and the scan the candidate belongs to.
 - The scan is a contract of its own — what was sampled, at which commit, with which model, and how
-  many proposals were discarded. It is what makes AC-14 readable and AC-13 pinnable.
+  many proposals were discarded. It is what makes AC-17 readable and AC-16 pinnable.
 - A category is recorded because the model is asked for one, but nothing is specified to depend on
-  it and nothing structural may be built from it (AC-22). It exists to make grouping possible
+  it and nothing structural may be built from it (AC-26). It exists to make grouping possible
   later, not to be relied on now, and never to decide the shape of a document.
-- Confidence has one scale, stated once, and the same scale on the wire as in storage. A number
-  that means a fraction in one place and a percentage in another is not a contract, and the
-  interface that renders it cannot tell the difference.
-- The proposed skill body has exactly one definition (AC-21). Two implementations that agree today
-  are a defect waiting for the day one of them is edited, and the disagreement would be invisible
-  because the screen and the store would each be showing their own version.
+- Confidence is a fraction between zero and one, in storage and on the wire alike. Only the point
+  that draws it turns it into a percentage. A number meaning a fraction in one place and a
+  percentage in another is not a contract, and the interface that renders it cannot tell which it
+  was handed.
+- Every evidence field a stored candidate carries is required, not optional. A candidate reaches
+  storage only after its file was opened and its snippet located, so "stored, but without
+  evidence" is a state the extractor cannot produce; admitting it into the contract would buy
+  nothing and cost an empty branch at every point that renders one.
+- The proposed skill body has exactly one definition, and it lives on the server (AC-25). Two
+  implementations that agree today are a defect waiting for the day one is edited, and the
+  disagreement would be invisible because the screen and the store would each be showing their
+  own. Putting the one definition in the shared contracts would not fix this — those are vendored
+  twice by construction, so "shared" there still means two copies that can drift. The screen
+  therefore asks the server what the body would be, and that costs a round trip when the proposal
+  is opened, which is a price worth paying once per skill.
 - Whatever changes is applied to both vendored copies in the same change; the two drifting is
   itself a defect.
 - Nothing has ever been written to the candidate storage in this tree, so reshaping it carries no
@@ -285,12 +342,12 @@ result or shows the first one was luck.
 ## Untrusted inputs
 
 - **The model's proposals** are the primary one. The path is used to open a file, so it must not be
-  able to name a file outside what was scanned (AC-11). The snippet is matched, never executed. The
+  able to name a file outside what was scanned (AC-14). The snippet is matched, never executed. The
   rule text is destined for a prompt.
 - **A generated skill's body** is the interesting case. The previous feature classified a
   hand-written body as trusted on the grounds that the operator was instructing their own reviewer,
   and an imported one as untrusted because a stranger wrote it. This body was written by neither: a
-  model assembled it. What makes it the operator's is that AC-20 forces a person to read it and
+  model assembled it. What makes it the operator's is that AC-24 forces a person to read it and
   gives them the chance to change it before it is stored — so the approval is not a formality, it is
   the whole basis for treating the result as trusted. If that approval step is ever made optional
   or defaulted through, this classification stops holding and the body has to be delimited like an
@@ -302,7 +359,7 @@ result or shows the first one was luck.
   does not merely steer one scan: it proposes a rule, and if that rule is plausible enough to be
   kept, it is installed into every later review as something the reviewer is told. The path from
   "text in a file someone else wrote" to "standing instruction to our reviewers" is short, and the
-  only narrow points on it are the enclosure of AC-6 and the human reading of AC-20. Both have to
+  only narrow points on it are the enclosure of AC-6 and the human reading of AC-24. Both have to
   hold; neither is sufficient alone.
 
 ## Open questions
@@ -310,10 +367,13 @@ result or shows the first one was luck.
 Three questions that were open on first writing have been settled, and are recorded here rather
 than silently applied, because each was a real choice with a rejected alternative.
 
-- **The proposed skill starts disabled.** The mock shows its enable switch already on; the copy
-  shipped for that same screen says it is off so the merged body can be read first. The copy wins:
-  enabling is a second, deliberate act. A screen that both asks someone to review a body and
-  pre-arms it has not really asked.
+- **The proposed skill starts disabled.** The design the author supplied shows its enable switch
+  already on; the copy shipped for that same screen says it is off so the merged body can be read
+  first. The copy wins: enabling is a second, deliberate act. A screen that both asks someone to
+  review a body and pre-arms it has not really asked. Worth naming plainly, because it bears on
+  every appeal to the design in this document: those screens reached this work as images and are
+  not in the repository, so a reader cannot check them. Where the design and something versioned
+  disagree, the versioned thing wins.
 - **No confidence threshold.** Everything verified is shown, strongest first. Filtering by the
   model's own confidence would be trusting the model's self-assessment to decide what a human sees,
   which is the same mistake as trusting its evidence. The reader is the filter — but if scans
@@ -327,7 +387,7 @@ Still open:
 - Whether a re-scan should be able to remember what was decided last time. Out of scope here, and
   the reason it is called out is that the shape chosen for a scan decides whether it can be added
   later without a rewrite.
-- One skill per scan, or several. The criteria allow both and the mock shows one named after the
-  repository. Several is permitted by AC-24, but nothing is specified about how a person would keep
+- One skill per scan, or several. The criteria allow both and the design shows one named after the
+  repository. Several is permitted by AC-29, but nothing is specified about how a person would keep
   them straight afterwards, and "several skills, indistinguishable, from one scan" is a mess that
   only shows up once someone has made it.
