@@ -19,6 +19,7 @@ Reusable AI skills that provide specialized knowledge and workflows. They live i
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
 | [engineering-insights](engineering-insights/SKILL.md) | Workflow | Reads and records per-package `INSIGHTS.md` — this repo's own skill |
+| [pr-self-review](pr-self-review/SKILL.md) | Workflow | Local pre-PR gate: scopes the diff, runs deterministic checks, routes changed files to the skills above, records a PASS/BLOCKED verdict the push hook reads |
 
 ## What Are Skills?
 
