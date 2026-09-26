@@ -1,0 +1,51 @@
+import type { CSSProperties } from "react";
+
+export const s = {
+  panel: {
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    background: "var(--bg-elevated)",
+    padding: 18,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    position: "sticky",
+    top: 24,
+  } satisfies CSSProperties,
+  headerRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  } satisfies CSSProperties,
+  title: { fontSize: 16, fontWeight: 700, flex: 1, minWidth: 0 } satisfies CSSProperties,
+  label: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "var(--text-secondary)",
+    marginBottom: 6,
+  } satisfies CSSProperties,
+  description: { fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5 } satisfies CSSProperties,
+  notice: {
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: "var(--warn)",
+    background: "var(--warn-bg)",
+    border: "1px solid var(--warn)",
+    borderRadius: 6,
+    padding: "8px 10px",
+  } satisfies CSSProperties,
+  body: {
+    fontSize: 12,
+    lineHeight: 1.55,
+    background: "var(--code-bg)",
+    borderRadius: 6,
+    padding: "10px 12px",
+    margin: 0,
+    maxHeight: 340,
+    overflow: "auto",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    color: "var(--text-secondary)",
+  } satisfies CSSProperties,
+} as const;

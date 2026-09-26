@@ -183,6 +183,16 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // Enabled-only + ordered is decided by agentsRepo.promptSkills (AC-11);
+      // this call must not filter or reorder, or the two views would diverge.
+      const promptSkills = await this.container.agentsRepo.promptSkills(agent.id);
+      if (promptSkills.length > 0) {
+        const untrusted = promptSkills.filter((s) => !s.trusted).length;
+        runLog.info(
+          `skills: ${promptSkills.length} enabled skill(s) attached (${untrusted} imported → delimited)`,
+        );
+      }
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -203,6 +213,9 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        ...(promptSkills.length
+          ? { skills: promptSkills.map((s) => ({ body: s.body, trusted: s.trusted })) }
+          : {}),
         prTitle: prTitleText(pull),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
@@ -271,7 +284,14 @@ export class ReviewRunExecutor {
           findings: findingRows.length,
           grounding,
         },
-        prompt_assembly: outcome.assembly,
+        prompt_assembly: {
+          ...outcome.assembly,
+          // Real cl100k tokens, not chars/4 — AC-14 exists so a skill that
+          // crowds out the diff is visible rather than mysterious.
+          skills_tokens: outcome.assembly.skills
+            ? this.container.tokenizer.count(outcome.assembly.skills)
+            : null,
+        },
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',
           args: c.label,
@@ -426,7 +446,14 @@ export class ReviewRunExecutor {
         source: 'local',
       },
       stats: { duration_ms: durationMs, tokens_in: 0, tokens_out: 0, cost_usd: null, findings: 0, grounding },
-      prompt_assembly: { system: agent.systemPrompt, skills: null, memory: null, specs: null, user: '' },
+      prompt_assembly: {
+        system: agent.systemPrompt,
+        skills: null,
+        skills_tokens: null,
+        memory: null,
+        specs: null,
+        user: '',
+      },
       tool_calls: [],
       raw_output: '',
       memory_pulled: [],

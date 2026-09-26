@@ -3,7 +3,7 @@ import type { ChatMessage, PromptAssembly } from '@devdigest/shared';
 /**
  * Prompt assembly + prompt-injection hardening.
  *
- * ALL external content (diff, PR body, code, community skills, specs) is
+ * ALL external content (diff, PR body, code, imported skills, specs) is
  * UNTRUSTED DATA, never instructions. We wrap it in clearly-delimited blocks
  * and add a system rule that content inside delimiters is data only.
  */
@@ -36,11 +36,27 @@ export function wrapUntrusted(label: string, content: string): string {
 /** Cap the PR description so a huge author body can't blow the token budget. */
 const MAX_PR_DESCRIPTION_CHARS = 4000;
 
+/**
+ * One already-selected, already-ordered skill body plus the trust decision the
+ * caller made about it. The engine does not know what a skill is, where it came
+ * from, or how it was selected — only whether this body may act as instructions.
+ */
+export interface PromptSkill {
+  body: string;
+  /**
+   * `true` — authored by the operator for their own reviewer; rendered as
+   * instructions, like the system prompt.
+   * `false` — authored elsewhere; rendered inside the same `<untrusted>`
+   * delimiters as the diff, the PR body and the specs, so it is data.
+   */
+  trusted: boolean;
+}
+
 export interface PromptParts {
   /** Agent's system prompt (trusted). */
   system: string;
-  /** Linked skill bodies (trusted-ish; community skills should be sanitized upstream). */
-  skills?: string[];
+  /** Selected skill bodies in render order; untrusted ones are delimiter-wrapped. */
+  skills?: PromptSkill[];
   /** Relevant memory items (trusted, curated). */
   memory?: string[];
   /** Project-context spec chunks (untrusted content). */
@@ -73,6 +89,13 @@ export interface PromptParts {
   task?: string;
 }
 
+function renderSkills(skills: PromptSkill[] | undefined): string | undefined {
+  if (!skills || skills.length === 0) return undefined;
+  return skills
+    .map((s, i) => (s.trusted ? s.body : wrapUntrusted(`skill-${i}`, s.body)))
+    .join('\n\n');
+}
+
 export interface AssembledPrompt {
   messages: ChatMessage[];
   assembly: PromptAssembly;
@@ -86,8 +109,7 @@ export interface AssembledPrompt {
 export function assemblePrompt(parts: PromptParts): AssembledPrompt {
   const system = `${parts.system}\n\n${INJECTION_GUARD}`;
 
-  const skillsBlock =
-    parts.skills && parts.skills.length > 0 ? parts.skills.join('\n\n') : undefined;
+  const skillsBlock = renderSkills(parts.skills);
   const memoryBlock =
     parts.memory && parts.memory.length > 0
       ? parts.memory.map((m) => `- ${m}`).join('\n')

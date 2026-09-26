@@ -48,6 +48,23 @@ export interface LinkedSkillRow {
   order: number;
 }
 
+/**
+ * A skill that is cleared to reach a model: enabled, and classified by where it
+ * was authored. `trusted` is the whole of what a consumer needs to decide how to
+ * present the body — nobody downstream re-reads `source`.
+ */
+export interface PromptSkillRow {
+  body: string;
+  trusted: boolean;
+  order: number;
+}
+
+/** Only a skill authored in this workspace may act as instructions; every
+ *  import (`imported_url`, `extracted`, `community`) is a stranger's text. */
+function isTrustedSource(source: string): boolean {
+  return source === 'manual';
+}
+
 export class AgentsRepository {
   constructor(private db: Db) {}
 
@@ -199,6 +216,25 @@ export class AgentsRepository {
     return rows.map((r) => ({ skill: r.skill, order: r.order }));
   }
 
+  /**
+   * The skills this agent's prompt may carry: linked AND enabled, in `order`.
+   * Disabled skills are excluded HERE, at selection (SPEC AC-11), not at prompt
+   * assembly — so every consumer of the selection sees the same set.
+   */
+  async promptSkills(agentId: string): Promise<PromptSkillRow[]> {
+    const rows = await this.db
+      .select({ body: t.skills.body, source: t.skills.source, order: t.agentSkills.order })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(and(eq(t.agentSkills.agentId, agentId), eq(t.skills.enabled, true)))
+      .orderBy(asc(t.agentSkills.order));
+    return rows.map((r) => ({
+      body: r.body,
+      trusted: isTrustedSource(r.source),
+      order: r.order,
+    }));
+  }
+
   async skillIdsForAgent(agentId: string): Promise<string[]> {
     const links = await this.linkedSkills(agentId);
     return links.map((l) => l.skill.id);
@@ -227,10 +263,14 @@ export class AgentsRepository {
    * the list are unlinked.
    */
   async setSkills(agentId: string, skillIds: string[]): Promise<void> {
-    await this.db.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
-    if (skillIds.length === 0) return;
-    await this.db
-      .insert(t.agentSkills)
-      .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+    // Delete + reinsert in ONE transaction (SPEC AC-7): a failure between the
+    // two must leave the previous set intact, never an agent with no skills.
+    await this.db.transaction(async (tx) => {
+      await tx.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
+      if (skillIds.length === 0) return;
+      await tx
+        .insert(t.agentSkills)
+        .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+    });
   }
 }

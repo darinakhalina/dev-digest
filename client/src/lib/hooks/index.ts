@@ -38,6 +38,19 @@ export {
   type CreateCommentInput,
   type RunReviewInput,
 } from "./reviews";
+export {
+  useSkills,
+  useSkill,
+  useCreateSkill,
+  useUpdateSkill,
+  useDeleteSkill,
+  useImportSkillPreview,
+  useAgentSkills,
+  useSetAgentSkills,
+  type CreateSkillInput,
+  type UpdateSkillInput,
+  type ImportSkillFileInput,
+} from "./skills";
 export { useRunTrace } from "./trace";
 export {
   useRepoIntelStatus,
