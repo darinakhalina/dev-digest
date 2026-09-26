@@ -11,6 +11,6 @@ export function toSkillDto(row: SkillRow): Skill {
     body: row.body,
     enabled: row.enabled,
     version: row.version,
-    evidence_files: row.evidenceFiles ?? null,
+    files: row.evidenceFiles ?? null,
   };
 }
