@@ -29,6 +29,11 @@ import { SkillsRepository } from '../modules/skills/repository.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import type { RepoAccess } from '../modules/repos/types.js';
+import type { SkillAuthoring } from '../modules/skills/types.js';
+import { SkillsService } from '../modules/skills/service.js';
+import { ConventionsRepository } from '../modules/conventions/repository.js';
+import { resolveFeatureModel } from '../modules/settings/feature-models.js';
+import type { FeatureModelChoice, FeatureModelId } from '@devdigest/shared';
 import { RepoService } from '../modules/repos/service.js';
 import type { PullsSync } from '../modules/pulls/types.js';
 import { PullsService } from '../modules/pulls/service.js';
@@ -80,6 +85,8 @@ export class Container {
   private _agentsRepo?: AgentsRepository;
   private _reviewRepo?: ReviewRepository;
   private _skillsRepo?: SkillsRepository;
+  private _skills?: SkillAuthoring;
+  private _conventionsRepo?: ConventionsRepository;
   private _repoIntel?: RepoIntel;
   private _repos?: RepoAccess;
   private _pulls?: PullsSync;
@@ -112,6 +119,18 @@ export class Container {
 
   get skillsRepo(): SkillsRepository {
     return (this._skillsRepo ??= new SkillsRepository(this.db));
+  }
+
+  get skills(): SkillAuthoring {
+    return (this._skills ??= new SkillsService(this));
+  }
+
+  get conventionsRepo(): ConventionsRepository {
+    return (this._conventionsRepo ??= new ConventionsRepository(this.db));
+  }
+
+  featureModel(workspaceId: string, id: FeatureModelId): Promise<FeatureModelChoice> {
+    return resolveFeatureModel(this, workspaceId, id);
   }
 
   get codeIndex(): CodeIndex {

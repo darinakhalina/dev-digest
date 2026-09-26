@@ -1,30 +1,16 @@
-import type { Skill, SkillImportPreview, SkillSource, SkillType } from '@devdigest/shared';
+import type { Skill, SkillImportPreview } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import type { SkillsRepository } from './repository.js';
 import { toSkillDto } from './helpers.js';
 import { parseSkillImport } from './domain.js';
 import { DEFAULT_SKILL_SOURCE, DEFAULT_SKILL_TYPE, MAX_IMPORT_BYTES } from './constants.js';
 import { ValidationError } from '../../platform/errors.js';
+import type { CreateSkillInput, SkillAuthoring, UpdateSkillInput } from './types.js';
 
-export interface CreateSkillInput {
-  name: string;
-  description?: string;
-  type?: SkillType;
-  source?: SkillSource;
-  body: string;
-  enabled?: boolean;
-}
+export type { CreateSkillInput, UpdateSkillInput } from './types.js';
 
-export interface UpdateSkillInput {
-  name?: string;
-  description?: string;
-  type?: SkillType;
-  source?: SkillSource;
-  body?: string;
-  enabled?: boolean;
-}
 
-export class SkillsService {
+export class SkillsService implements SkillAuthoring {
   private repo: SkillsRepository;
 
   constructor(container: Container) {
@@ -50,6 +36,7 @@ export class SkillsService {
       source: input.source ?? DEFAULT_SKILL_SOURCE,
       body: input.body,
       ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+      ...(input.evidenceFiles !== undefined ? { evidenceFiles: input.evidenceFiles } : {}),
     });
     return toSkillDto(row);
   }

@@ -13,6 +13,7 @@ export interface InsertSkill {
   source: SkillSource;
   body: string;
   enabled?: boolean;
+  evidenceFiles?: string[];
 }
 
 export interface UpdateSkill {
@@ -64,6 +65,7 @@ export class SkillsRepository {
           body: values.body,
           enabled: values.enabled ?? true,
           version: 1,
+          ...(values.evidenceFiles !== undefined ? { evidenceFiles: values.evidenceFiles } : {}),
         })
         .returning();
       await tx
