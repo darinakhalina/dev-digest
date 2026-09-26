@@ -10,6 +10,7 @@ export interface InsertScan {
   workspaceId: string;
   repoId: string;
   sampleFileCount: number;
+  indexed: boolean;
   discardedCount: number;
   sourceSha: string;
   provider: Provider;

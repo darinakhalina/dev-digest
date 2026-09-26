@@ -4,23 +4,65 @@
     "crumbConventions": "Conventions",
     "headingPrefix": "Conventions in ",
     "repoFallback": "repo",
-    "subtitle": "Scan the cloned repo to surface house-rules — each backed by evidence you can turn into a Skill.",
+    "subtitleNone": "Scan the cloned repo to surface house rules — each backed by evidence you can turn into a skill.",
+    "subtitleScanned": "Detected from {sampleCount, plural, one {# sample file} other {# sample files}} · last scan {when}",
+    "discarded": "{count, plural, one {# proposal was discarded} other {# proposals were discarded}} for want of evidence",
+    "notIndexed": "This repo has not been indexed, so only its configuration files were sampled. Re-index it for better results.",
     "scanning": "Scanning…",
     "rescan": "Re-scan",
+    "rescanWarning": "Re-scanning replaces these candidates with a fresh set. Decisions made here will not carry over. Continue?",
     "runExtraction": "Run extraction",
     "extractionFailed": "Extraction failed",
     "loadError": "Could not load conventions.",
+    "retry": "Try again",
+    "selectedCount": "{selected} of {total} selected",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "createSkill": "Create skill",
     "empty": {
       "title": "No conventions extracted yet",
-      "body": "Scan the repo to surface house-rules — naming, error handling, structure — each backed by evidence you can turn into a Skill.",
+      "body": "Scan the repo to surface house rules — naming, error handling, structure — each backed by evidence you can turn into a skill.",
       "cta": "Run extraction"
     },
-    "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files"
+    "noneSurvived": {
+      "title": "Nothing survived verification",
+      "body": "The scan ran, but every proposal cited code that is not in the sampled files. That is a real result, not a failure — try re-scanning, or index the repo first."
+    }
   },
   "card": {
     "confidence": "Confidence",
+    "confidencePct": "{pct}%",
+    "accept": "Accept",
+    "reject": "Reject",
     "accepted": "Accepted",
-    "accepting": "Accepting…",
-    "acceptAsSkill": "Accept as Skill"
+    "rejected": "Rejected",
+    "undo": "Undo",
+    "edit": "Edit rule",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saveFailed": "Could not save that change.",
+    "evidenceHint": "Opens this code on GitHub at the scanned commit",
+    "evidenceUnlinkable": "The scanned commit is not published, so this cannot be opened on GitHub",
+    "selectForSkill": "Include in skill"
+  },
+  "modal": {
+    "title": "Create skill from conventions",
+    "subtitle": "Merged from {count, plural, one {# accepted convention} other {# accepted conventions}} in {repo}. Everything below is editable before you save.",
+    "loading": "Building the proposal…",
+    "nameLabel": "Name",
+    "namePlaceholder": "repo-conventions",
+    "nameHint": "A slug — lowercase letters, digits and dashes.",
+    "nameInvalid": "Use lowercase letters, digits and dashes, e.g. repo-conventions.",
+    "descriptionLabel": "Description",
+    "typeLabel": "Type",
+    "enabledLabel": "Enabled",
+    "enabledHint": "Off by default — read the merged body before it reaches an agent's prompt.",
+    "bodyLabel": "Skill body",
+    "unsaved": "unsaved",
+    "cancel": "Cancel",
+    "save": "Create skill",
+    "saving": "Saving…",
+    "createdToast": "Created skill \"{name}\".",
+    "failed": "Could not create the skill."
   }
 }

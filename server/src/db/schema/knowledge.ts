@@ -7,6 +7,7 @@ import {
   timestamp,
   doublePrecision,
   integer,
+  boolean,
   vector,
   index,
   check,
@@ -51,6 +52,7 @@ export const conventionScans = pgTable(
       .notNull()
       .references(() => repos.id, { onDelete: 'cascade' }),
     sampleFileCount: integer('sample_file_count').notNull(),
+    indexed: boolean('indexed').notNull().default(true),
     discardedCount: integer('discarded_count').notNull().default(0),
     sourceSha: text('source_sha').notNull(),
     provider: text('provider', { enum: ['openai', 'anthropic', 'openrouter'] }).notNull(),

@@ -249,6 +249,7 @@ export const ConventionScan = z.object({
   repo_id: z.string(),
   sample_file_count: z.number().int(),
   discarded_count: z.number().int(),
+  indexed: z.boolean(),
   source_sha: z.string(),
   provider: Provider,
   model: z.string(),

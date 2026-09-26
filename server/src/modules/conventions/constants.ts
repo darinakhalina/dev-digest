@@ -24,7 +24,8 @@ export const MAX_PROMPT_CHARS = 150_000;
 export const MIN_EVIDENCE_LINES = 2;
 export const MIN_EVIDENCE_CHARS = 24;
 
-export const SCAN_TIMEOUT_MS = 90_000;
+export const ATTEMPT_TIMEOUT_MS = 45_000;
+export const SCAN_TIMEOUT_MS = 100_000;
 
 export const DEFAULT_SKILL_NAME_SUFFIX = 'conventions';
 export const FALLBACK_SKILL_NAME = 'repo-conventions';

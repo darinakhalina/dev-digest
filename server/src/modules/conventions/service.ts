@@ -10,8 +10,8 @@ import type {
   Skill,
   SkillType,
 } from '@devdigest/shared';
-import { NotFoundError, ValidationError } from '../../platform/errors.js';
-import { MAX_CANDIDATES, SCAN_TIMEOUT_MS } from './constants.js';
+import { ExternalServiceError, NotFoundError, ValidationError } from '../../platform/errors.js';
+import { ATTEMPT_TIMEOUT_MS, MAX_CANDIDATES, SCAN_TIMEOUT_MS } from './constants.js';
 import {
   describeSkill,
   findSnippetLines,
@@ -68,6 +68,26 @@ export interface CreateSkillFromConventionsInput {
 
 const scansInFlight = new Set<string>();
 
+async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new ExternalServiceError('The conventions scan ran out of time', {
+            timeout_ms: ms,
+          }),
+        ),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([work, deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export class ConventionsService {
   constructor(
     private deps: {
@@ -102,13 +122,17 @@ export class ConventionsService {
       const { provider, model } = await this.deps.resolveModel(workspaceId);
       const llm = await this.deps.llm(provider);
 
-      const result = await llm.completeStructured({
-        model,
-        schema: ConventionExtractionOutput,
-        schemaName: 'ConventionExtraction',
-        messages: buildConventionsPrompt(sample),
-        timeoutMs: SCAN_TIMEOUT_MS,
-      });
+      const result = await withDeadline(
+        llm.completeStructured({
+          model,
+          schema: ConventionExtractionOutput,
+          schemaName: 'ConventionExtraction',
+          messages: buildConventionsPrompt(sample),
+          timeoutMs: ATTEMPT_TIMEOUT_MS,
+          maxRetries: 1,
+        }),
+        SCAN_TIMEOUT_MS,
+      );
 
       const proposed = result.data.candidates.slice(0, MAX_CANDIDATES);
       const verified = verifyAgainstSample(sample, proposed);
@@ -118,6 +142,7 @@ export class ConventionsService {
           workspaceId,
           repoId,
           sampleFileCount: sample.configFiles.length + sample.sourceFiles.length,
+          indexed: sample.indexed,
           discardedCount: proposed.length - verified.length,
           sourceSha: sample.sourceSha,
           provider,
@@ -296,6 +321,7 @@ function toScanDto(row: ConventionScanRow): ConventionScan {
     repo_id: row.repoId,
     sample_file_count: row.sampleFileCount,
     discarded_count: row.discardedCount,
+    indexed: row.indexed,
     source_sha: row.sourceSha,
     provider: row.provider,
     model: row.model,

@@ -1,0 +1,1 @@
+ALTER TABLE "convention_scans" ADD COLUMN "indexed" boolean DEFAULT true NOT NULL;
