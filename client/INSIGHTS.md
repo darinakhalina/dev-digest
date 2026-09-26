@@ -36,6 +36,17 @@ rejected the new member. So missing the third place costs a failed typecheck tha
 never a silent gap; make all three edits in one change instead of discovering them one compiler run
 at a time. Evidence: client/src/vendor/ui/primitives/tokens.ts:3
 
+**2026-09-25** — A disclosure header (`role="button" onClick={toggle}`) that contains a real nested
+`<button>` cannot use `e.stopPropagation()` on the child alone to keep Enter/Space from also
+toggling the parent: `stopPropagation` only stops the click from bubbling, but a native button's own
+Enter/Space→click synthesis still fires, and React's synthetic `onKeyDown` on the ancestor still
+sees that keydown regardless of the child's click-time `stopPropagation`. The fix applied across five
+disclosure headers (`FindingCard`, `FileCard`, `TraceSection`, `ToolCallRow`, `PromptBlock`) is a
+target guard on the parent's own `onKeyDown`: `if (e.target !== e.currentTarget) return;` before
+handling Enter/Space. `PromptBlock` is the sharpest case — its copy/fullscreen buttons already called
+`e.stopPropagation()` on click, which reads as "already handled," but Enter on either button still
+toggled the header's `open` state until the target guard was added. Evidence:
+client/src/app/repos/[repoId]/pulls/[number]/_components/RunTraceDrawer/_components/PromptBlock/PromptBlock.tsx:36
 
 ## Tool & Library Notes
 
@@ -73,6 +84,39 @@ themselves, which is why only `pnpm dev` / `pnpm build` ever saw the breakage. I
 `@devdigest/shared` normally; if such an import fails to resolve, suspect that config line was
 removed rather than reaching for a deep import.
 Evidence: client/next.config.mjs:10
+
+**2026-09-25** — A Next.js special file (`page.tsx`, `layout.tsx`, `not-found.tsx`, `loading.tsx`,
+`template.tsx`) that imports anything from `@devdigest/ui` and lacks `"use client"` crashes every
+route it applies to with `Super expression must either be null or a function`, not a targeted error —
+`not-found.tsx` had no directive, imported only `Icon`, and that was enough to take the whole app
+down, because the barrel (`vendor/ui/index.ts`) re-exports `./charts` unconditionally, and
+`charts/LineChart.tsx` imports `recharts`, a client-only library whose class components can't
+evaluate in the RSC module graph. `error.tsx`/`global-error.tsx` are safe from this because Next
+itself refuses to build them without `"use client"`; `not-found.tsx` has no such enforcement, so nothing
+catches a missing directive there. The file was introduced in this state at 18:35 and survived two more
+"typecheck && vitest && build" verification passes (through 19:35+) before anyone opened a browser —
+not because those checks were run carelessly, but because none of them can see this bug in principle.
+Confirmed by directly testing the failure boundary, not assuming it: reintroducing the missing
+directive and running `next build` → `next start` → `curl` a real 404 URL served a correct "Page not
+found" page, no crash. Only `next dev` reproduces it — production's build-time client-reference-manifest
+pass resolves the server/client module boundary for the whole app graph up front, while `next dev`
+compiles each route's RSC and client layers incrementally and lazily on first hit, and it is that
+incremental compilation that puts `recharts` in the wrong layer. So neither `pnpm typecheck`, nor
+vitest, nor even `pnpm run build`, is a substitute for opening the dev server and requesting the page —
+that is the one check with any chance of catching this class of bug, and it wasn't run until asked for.
+Before adding a new Next special file (`page.tsx`, `layout.tsx`, `loading.tsx`, `template.tsx`,
+`not-found.tsx`), grep it for `"use client"` if it, even transitively through a barrel, touches
+`@devdigest/ui`. Evidence: client/src/app/not-found.tsx:1
+
+**2026-09-25** — A fake `EventSource` for testing `useRunEvents` must NOT route every `emit(kind,
+data)` through `onmessage`: real `EventSource.onmessage` fires only for a default SSE frame (no
+`event:` field, i.e. jsdom/browser semantics call it a `"message"` event); a named event like
+`event: tool` reaches only listeners added via `addEventListener("tool", …)`, never `onmessage`.
+`useRunEvents` (`lib/hooks/reviews.ts:169`) relies on exactly this split — it sets `es.onmessage` and
+also registers the same handler for `"info"|"tool"|"result"|"error"` via `addEventListener` — so a
+fake that calls both on every emit double-counts: one test asserted 2 accumulated events after two
+named emits and got 3. Route `"message"` to `onmessage` and every other kind only to that kind's
+listeners. Evidence: client/src/lib/hooks/useRunEvents.test.ts:26
 
 ## Session Notes
 

@@ -1,22 +1,27 @@
-import type { Severity } from "@devdigest/shared";
+import type { FindingRecord, Severity } from "@devdigest/shared";
 
-/** Every level must appear here: the Record makes a missing one a type error,
- *  so a level added to the contract cannot be silently missing from the UI. */
 const ALL: Record<Severity, true> = {
   CRITICAL: true,
   WARNING: true,
   SUGGESTION: true,
 };
 
-/** Sort weight per severity (lower = shown first). */
-export const SEVERITY_ORDER: Record<string, number> = {
+export const SEVERITY_ORDER: Record<Severity, number> = {
   CRITICAL: 0,
   WARNING: 1,
   SUGGESTION: 2,
-  INFO: 3,
 };
 
-/** Severity levels in display order. */
+export function severityRank(level: string): number {
+  return (SEVERITY_ORDER as Record<string, number>)[level] ?? 9;
+}
+
 export const SEVERITIES = (Object.keys(ALL) as Severity[]).sort(
-  (a, b) => (SEVERITY_ORDER[a] ?? 9) - (SEVERITY_ORDER[b] ?? 9),
+  (a, b) => SEVERITY_ORDER[a] - SEVERITY_ORDER[b],
 );
+
+export function countsBySeverity(findings: FindingRecord[]): Record<Severity, number> {
+  const out = Object.fromEntries(SEVERITIES.map((s) => [s, 0])) as Record<Severity, number>;
+  for (const f of findings) if (f.severity in out) out[f.severity as Severity] += 1;
+  return out;
+}

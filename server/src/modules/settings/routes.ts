@@ -1,16 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, eq } from 'drizzle-orm';
 import {
   SettingsUpdate,
   ConnTestRequest,
   type ConnTestResult,
   type SecretsStatus,
 } from '@devdigest/shared';
-import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { GITHUB_PROVIDER, SECRET_KEY_BY_PROVIDER } from './constants.js';
-import { rowsToSettings } from './helpers.js';
+import { SettingsService } from './service.js';
 
 /**
  * F1 — settings module.
@@ -24,14 +22,11 @@ import { rowsToSettings } from './helpers.js';
 export default async function settingsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
+  const service = new SettingsService(container);
 
   app.get('/settings', async (req) => {
     const { workspaceId } = await getContext(container, req);
-    const rows = await container.db
-      .select()
-      .from(t.settings)
-      .where(eq(t.settings.workspaceId, workspaceId));
-    return rowsToSettings(rows);
+    return service.get(workspaceId);
   });
 
   // Which provider keys are configured (booleans only — the values are NEVER
@@ -48,21 +43,7 @@ export default async function settingsRoutes(appBase: FastifyInstance) {
 
   app.put('/settings', { schema: { body: SettingsUpdate } }, async (req) => {
     const { workspaceId, userId } = await getContext(container, req);
-    const body = req.body;
-    for (const [key, value] of Object.entries(body)) {
-      await container.db
-        .insert(t.settings)
-        .values({ workspaceId, userId, key, value })
-        .onConflictDoUpdate({
-          target: [t.settings.workspaceId, t.settings.userId, t.settings.key],
-          set: { value },
-        });
-    }
-    const rows = await container.db
-      .select()
-      .from(t.settings)
-      .where(eq(t.settings.workspaceId, workspaceId));
-    return rowsToSettings(rows);
+    return service.update(workspaceId, userId, req.body);
   });
 
   app.post(
@@ -74,23 +55,24 @@ export default async function settingsRoutes(appBase: FastifyInstance) {
     async (req): Promise<ConnTestResult> => {
     const { provider, key } = req.body;
     try {
-      // If the UI supplied a key, persist it (BYO key) before testing so the
-      // test reflects — and the rest of the app can use — the new value.
+      if (key && !container.secrets.set) {
+        return { provider, ok: false, message: 'Secrets backend is read-only' };
+      }
+      let result: ConnTestResult;
+      if (provider === GITHUB_PROVIDER) {
+        const gh = key ? await container.candidateGithub(key) : await container.github();
+        const login = await gh.currentLogin();
+        result = { provider, ok: true, message: `Connected as @${login}` };
+      } else {
+        const llm = key ? await container.candidateLlm(provider, key) : await container.llm(provider);
+        const models = await llm.listModels();
+        result = { provider, ok: true, message: `OK — ${models.length} models available` };
+      }
       if (key) {
-        if (!container.secrets.set) {
-          return { provider, ok: false, message: 'Secrets backend is read-only' };
-        }
-        await container.secrets.set(SECRET_KEY_BY_PROVIDER[provider], key);
+        await container.secrets.set!(SECRET_KEY_BY_PROVIDER[provider], key);
         container.invalidateSecretCaches();
       }
-      if (provider === GITHUB_PROVIDER) {
-        const gh = await container.github();
-        const login = await gh.currentLogin();
-        return { provider, ok: true, message: `Connected as @${login}` };
-      }
-      const llm = await container.llm(provider);
-      const models = await llm.listModels();
-      return { provider, ok: true, message: `OK — ${models.length} models available` };
+      return result;
     } catch (err) {
       return { provider, ok: false, message: (err as Error).message };
     }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { NAV, SETTINGS_ITEM, resolveHref } from "@devdigest/ui";
 import { useActiveRepo } from "../../../lib/repo-context";
 import { G_NAV_TIMEOUT_MS } from "../constants";
-import { isTextInput } from "../helpers";
+import { isTextInput } from "@/lib/keyboard";
 
 interface GlobalShortcutHandlers {
   onOpenPalette: () => void;

@@ -4,6 +4,10 @@ import { schema } from './schema.js';
 
 export type Db = PostgresJsDatabase<typeof schema>;
 
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+export type Executor = Db | Tx;
+
 export interface DbHandle {
   db: Db;
   sql: postgres.Sql;

@@ -141,6 +141,7 @@ export interface GitHubClient {
 export interface CloneOptions {
   depth?: number;
   branch?: string;
+  signal?: AbortSignal;
 }
 
 export interface DiffHunk {

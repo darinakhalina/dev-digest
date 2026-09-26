@@ -76,13 +76,13 @@ export class OctokitGitHubClient implements GitHubClient {
             repo: repo.name,
             pull_number: n,
           });
-          const { data: files } = await this.octokit.rest.pulls.listFiles({
+          const files = await this.octokit.paginate(this.octokit.rest.pulls.listFiles, {
             owner: repo.owner,
             repo: repo.name,
             pull_number: n,
             per_page: 100,
           });
-          const { data: commits } = await this.octokit.rest.pulls.listCommits({
+          const commits = await this.octokit.paginate(this.octokit.rest.pulls.listCommits, {
             owner: repo.owner,
             repo: repo.name,
             pull_number: n,
@@ -139,25 +139,24 @@ export class OctokitGitHubClient implements GitHubClient {
     n: number,
     review: GitHubReviewPayload,
   ): Promise<{ id: string }> {
-    return withRetry(() =>
-      withTimeout(
-        (async () => {
-          const res = await this.octokit.rest.pulls.createReview({
-            owner: repo.owner,
-            repo: repo.name,
-            pull_number: n,
-            body: review.body,
-            event: review.event,
-            comments: review.comments?.map((c) => ({
-              path: c.path,
-              line: c.line,
-              body: c.body,
-            })),
-          });
-          return { id: String(res.data.id) };
-        })(),
-        TIMEOUT,
-      ),
+    return withTimeout(
+      (async () => {
+        const res = await this.octokit.rest.pulls.createReview({
+          request: { retries: 0 },
+          owner: repo.owner,
+          repo: repo.name,
+          pull_number: n,
+          body: review.body,
+          event: review.event,
+          comments: review.comments?.map((c) => ({
+            path: c.path,
+            line: c.line,
+            body: c.body,
+          })),
+        });
+        return { id: String(res.data.id) };
+      })(),
+      TIMEOUT,
     );
   }
 
@@ -212,52 +211,51 @@ export class OctokitGitHubClient implements GitHubClient {
     n: number,
     input: CreateReviewCommentInput,
   ): Promise<PrReviewComment> {
-    return withRetry(() =>
-      withTimeout(
-        (async () => {
-          if (input.inReplyTo != null) {
-            const res = await this.octokit.rest.pulls.createReplyForReviewComment({
-              owner: repo.owner,
-              repo: repo.name,
-              pull_number: n,
-              comment_id: input.inReplyTo,
-              body: input.body,
-            });
-            return this.mapReviewComment(res.data);
-          }
-          const res = await this.octokit.rest.pulls.createReviewComment({
+    return withTimeout(
+      (async () => {
+        if (input.inReplyTo != null) {
+          const res = await this.octokit.rest.pulls.createReplyForReviewComment({
+            request: { retries: 0 },
             owner: repo.owner,
             repo: repo.name,
             pull_number: n,
-            commit_id: input.commitId,
-            path: input.path,
-            line: input.line,
-            side: input.side ?? 'RIGHT',
+            comment_id: input.inReplyTo,
             body: input.body,
           });
           return this.mapReviewComment(res.data);
-        })(),
-        TIMEOUT,
-      ),
+        }
+        const res = await this.octokit.rest.pulls.createReviewComment({
+          request: { retries: 0 },
+          owner: repo.owner,
+          repo: repo.name,
+          pull_number: n,
+          commit_id: input.commitId,
+          path: input.path,
+          line: input.line,
+          side: input.side ?? 'RIGHT',
+          body: input.body,
+        });
+        return this.mapReviewComment(res.data);
+      })(),
+      TIMEOUT,
     );
   }
 
   async openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }> {
-    return withRetry(() =>
-      withTimeout(
-        (async () => {
-          const res = await this.octokit.rest.pulls.create({
-            owner: repo.owner,
-            repo: repo.name,
-            title: payload.title,
-            head: payload.head,
-            base: payload.base,
-            body: payload.body,
-          });
-          return { url: res.data.html_url };
-        })(),
-        TIMEOUT,
-      ),
+    return withTimeout(
+      (async () => {
+        const res = await this.octokit.rest.pulls.create({
+          request: { retries: 0 },
+          owner: repo.owner,
+          repo: repo.name,
+          title: payload.title,
+          head: payload.head,
+          base: payload.base,
+          body: payload.body,
+        });
+        return { url: res.data.html_url };
+      })(),
+      TIMEOUT,
     );
   }
 
@@ -265,67 +263,65 @@ export class OctokitGitHubClient implements GitHubClient {
     repo: RepoRef,
     payload: CommitFilesPayload,
   ): Promise<{ branch: string }> {
-    return withRetry(() =>
-      withTimeout(
-        (async () => {
-          const owner = repo.owner;
-          const name = repo.name;
-          const g = this.octokit.rest.git;
+    return withTimeout(
+      (async () => {
+        const owner = repo.owner;
+        const name = repo.name;
+        const g = this.octokit.rest.git;
 
-          // Parent commit: the target branch if it already exists, else the base.
-          let parentSha: string;
-          let branchExists = false;
-          try {
-            const ref = await g.getRef({ owner, repo: name, ref: `heads/${payload.branch}` });
-            parentSha = ref.data.object.sha;
-            branchExists = true;
-          } catch {
-            const baseRef = await g.getRef({ owner, repo: name, ref: `heads/${payload.base}` });
-            parentSha = baseRef.data.object.sha;
-          }
+        // Parent commit: the target branch if it already exists, else the base.
+        let parentSha: string;
+        let branchExists = false;
+        try {
+          const ref = await g.getRef({ owner, repo: name, ref: `heads/${payload.branch}` });
+          parentSha = ref.data.object.sha;
+          branchExists = true;
+        } catch {
+          const baseRef = await g.getRef({ owner, repo: name, ref: `heads/${payload.base}` });
+          parentSha = baseRef.data.object.sha;
+        }
 
-          // New tree layered on the parent's tree (so unrelated files are kept).
-          const parentCommit = await g.getCommit({ owner, repo: name, commit_sha: parentSha });
-          const tree = await g.createTree({
+        // New tree layered on the parent's tree (so unrelated files are kept).
+        const parentCommit = await g.getCommit({ owner, repo: name, commit_sha: parentSha });
+        const tree = await g.createTree({
+          owner,
+          repo: name,
+          base_tree: parentCommit.data.tree.sha,
+          tree: payload.files.map((f) => ({
+            path: f.path,
+            mode: '100644',
+            type: 'blob',
+            content: f.contents,
+          })),
+        });
+
+        const commit = await g.createCommit({
+          owner,
+          repo: name,
+          message: payload.message,
+          tree: tree.data.sha,
+          parents: [parentSha],
+        });
+
+        if (branchExists) {
+          await g.updateRef({
             owner,
             repo: name,
-            base_tree: parentCommit.data.tree.sha,
-            tree: payload.files.map((f) => ({
-              path: f.path,
-              mode: '100644',
-              type: 'blob',
-              content: f.contents,
-            })),
+            ref: `heads/${payload.branch}`,
+            sha: commit.data.sha,
+            force: true,
           });
-
-          const commit = await g.createCommit({
+        } else {
+          await g.createRef({
             owner,
             repo: name,
-            message: payload.message,
-            tree: tree.data.sha,
-            parents: [parentSha],
+            ref: `refs/heads/${payload.branch}`,
+            sha: commit.data.sha,
           });
-
-          if (branchExists) {
-            await g.updateRef({
-              owner,
-              repo: name,
-              ref: `heads/${payload.branch}`,
-              sha: commit.data.sha,
-              force: true,
-            });
-          } else {
-            await g.createRef({
-              owner,
-              repo: name,
-              ref: `refs/heads/${payload.branch}`,
-              sha: commit.data.sha,
-            });
-          }
-          return { branch: payload.branch };
-        })(),
-        TIMEOUT,
-      ),
+        }
+        return { branch: payload.branch };
+      })(),
+      TIMEOUT,
     );
   }
 

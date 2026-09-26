@@ -18,6 +18,7 @@
  * Option B: rank = PageRank only, hotness=0 (clone is shallow). The T3
  * block is skipped when the soft budget trips, leaving status 'partial'.
  */
+import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { cpus } from 'node:os';
@@ -46,12 +47,12 @@ import { walkClone } from './walk.js';
 import { computeFileRank } from './rank.js';
 import { renderRepoMap } from './repo-map.js';
 
-export interface IndexPayload {
-  repoId: string;
-  /** Optional ref hint — when omitted we look up the repo's owner/name from the DB. */
-  owner?: string;
-  name?: string;
-}
+export const IndexPayload = z.object({
+  repoId: z.string(),
+  owner: z.string().optional(),
+  name: z.string().optional(),
+});
+export type IndexPayload = z.infer<typeof IndexPayload>;
 
 /** Per-file parse error captured into `stats.parseDegraded` (capped). */
 interface ParseDegradedEntry {

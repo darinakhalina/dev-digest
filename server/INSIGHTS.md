@@ -15,6 +15,17 @@ findings and score 100, which reads as "the reviewer works" when nothing was rev
 repository before validating anything that depends on findings, grounding or scores.
 Evidence: server/src/db/seed.ts
 
+**2026-09-24** — Editing `docs/agent-prompts/general-reviewer.md` does not change what any reviewer
+is told, and the two files have already drifted despite `seed-prompts.ts` opening with "Keep the two
+in sync when you edit a prompt". The markdown carries a whole `# House rules of this codebase`
+section — Zod declared on the route, adapters from the DI container, the `.js` extension rule — and
+`GENERAL_REVIEWER_PROMPT` has no such section at all (`grep -c 'House rules'` on the `.ts` returns
+0). The header itself explains why editing the `.md` is inert: the DB row is the source of truth at
+run time, and it was seeded from the `.ts`. To actually change a reviewer's behaviour, edit
+`seed-prompts.ts` and re-seed a fresh workspace, or change the agent's `system_prompt` row directly.
+Read the markdown as documentation of intent, not as the prompt.
+Evidence: server/src/db/seed-prompts.ts:6
+
 ## Codebase Patterns
 
 **2026-09-23** — `reviews.agent_id` is a plain uuid with **no foreign key**, while
@@ -49,6 +60,13 @@ null. Evidence: server/src/modules/reviews/run-executor.ts:191
 ## Tool & Library Notes
 
 ## Recurring Errors & Fixes
+
+**2026-09-25** — Every `buildApp()` marks all `agent_runs` still `running` as `failed` before it
+answers anything (`reapStaleRuns` on boot, `app.ts:80-85`). A DB-backed test that inserts a
+`running` run and then builds an app per test sees it flipped to `failed` — a cancel test then fails
+with "expected 'failed' to be 'cancelled'", which reads as a bug in the cancel path. Build the app
+once, `await app.ready()`, and only then insert the runs the test needs.
+Evidence: server/test/runs-scoping.it.test.ts:24
 
 ## Session Notes
 

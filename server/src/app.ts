@@ -79,6 +79,8 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   // would need per-instance scoping / heartbeats (not this app's deployment).
   try {
     const reaped = await new ReviewService(container).reapStaleRuns();
+    const interrupted = await container.jobs.reapInterrupted();
+    if (interrupted > 0) app.log.info({ interrupted }, 'marked interrupted jobs failed on boot');
     if (reaped > 0) app.log.info({ reaped }, 'reaped stale running agent_runs on boot');
   } catch (err) {
     app.log.warn({ err: (err as Error).message }, 'stale-run reaping failed (non-fatal)');
@@ -156,11 +158,15 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       });
       return;
     }
+    const e = err as { statusCode?: number; code?: string; message?: string };
+    if (typeof e.statusCode === 'number' && e.statusCode >= 400 && e.statusCode < 500) {
+      reply.status(e.statusCode).send({
+        error: { code: e.code ?? 'bad_request', message: e.message ?? 'Bad request' },
+      });
+      return;
+    }
     app.log.error(err);
-    const e = err as { statusCode?: number; message?: string };
-    reply.status(e.statusCode ?? 500).send({
-      error: { code: 'internal_error', message: e.message ?? 'Internal error' },
-    });
+    reply.status(500).send({ error: { code: 'internal_error', message: 'Internal error' } });
   });
 
   // Register feature modules from the static registry (src/modules/index.ts).
@@ -168,6 +174,8 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   for (const plugin of Object.values(modules)) {
     await app.register(plugin);
   }
+
+  app.addHook('preClose', async () => container.runBus.closeAll());
 
   // Close the db handle we created on shutdown.
   if (handle) app.addHook('onClose', async () => handle.close());

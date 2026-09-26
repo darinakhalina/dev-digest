@@ -58,3 +58,19 @@ describe("FindingCard (smoke, both themes)", () => {
     expect(onAction).toHaveBeenCalledWith("dismiss");
   });
 });
+
+describe("FindingCard keyboard — SPEC-2026-09-25-accessibility", () => {
+  it("is reachable and expandable by keyboard, so Accept/Reject are reachable", () => {
+    renderWithIntl(<FindingCard f={FINDING} onAction={() => {}} />);
+    const header = screen.getByRole("button", { name: /Hardcoded Stripe secret key/ });
+    expect(header).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Accept")).not.toBeInTheDocument();
+
+    header.focus();
+    expect(header).toHaveFocus();
+    fireEvent.keyDown(header, { key: "Enter" });
+
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Accept")).toBeInTheDocument();
+  });
+});

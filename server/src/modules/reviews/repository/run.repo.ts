@@ -1,5 +1,5 @@
-import { and, desc, eq } from 'drizzle-orm';
-import type { Db } from '../../../db/client.js';
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import type { Db, Executor } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
 
@@ -91,11 +91,29 @@ export async function deleteAgentRun(
 }
 
 /** Mark a still-running run as cancelled (no-op if it already finished). */
-export async function cancelRunIfRunning(db: Db, runId: string): Promise<boolean> {
+export async function runStatusInWorkspace(
+  db: Db,
+  workspaceId: string,
+  runId: string,
+): Promise<string | null | undefined> {
+  const [row] = await db
+    .select({ status: t.agentRuns.status })
+    .from(t.agentRuns)
+    .where(and(eq(t.agentRuns.id, runId), eq(t.agentRuns.workspaceId, workspaceId)));
+  return row ? row.status : undefined;
+}
+
+export async function cancelRunIfRunning(db: Db, workspaceId: string, runId: string): Promise<boolean> {
   const rows = await db
     .update(t.agentRuns)
     .set({ status: 'cancelled' })
-    .where(and(eq(t.agentRuns.id, runId), eq(t.agentRuns.status, 'running')))
+    .where(
+      and(
+        eq(t.agentRuns.id, runId),
+        eq(t.agentRuns.workspaceId, workspaceId),
+        eq(t.agentRuns.status, 'running'),
+      ),
+    )
     .returning({ id: t.agentRuns.id });
   return rows.length > 0;
 }
@@ -140,7 +158,7 @@ export async function createAgentRun(
 }
 
 export async function completeAgentRun(
-  db: Db,
+  db: Executor,
   runId: string,
   values: {
     status: 'done' | 'failed' | 'cancelled';
@@ -157,8 +175,8 @@ export async function completeAgentRun(
     /** Failure reason (status='failed') / cancellation note. Null clears it. */
     error?: string | null;
   },
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const rows = await db
     .update(t.agentRuns)
     .set({
       status: values.status,
@@ -172,7 +190,13 @@ export async function completeAgentRun(
       blockers: values.blockers ?? null,
       error: values.error ?? null,
     })
-    .where(eq(t.agentRuns.id, runId));
+    .where(
+      values.status === 'done'
+        ? and(eq(t.agentRuns.id, runId), eq(t.agentRuns.status, 'running'))
+        : eq(t.agentRuns.id, runId),
+    )
+    .returning({ id: t.agentRuns.id });
+  return rows.length > 0;
 }
 
 /** Persist the WHOLE run log as ONE document. PK = runId → agent_runs. */
@@ -183,7 +207,39 @@ export async function saveRunTrace(db: Db, runId: string, trace: RunTrace): Prom
     .onConflictDoUpdate({ target: t.runTraces.runId, set: { trace } });
 }
 
-export async function getRunTrace(db: Db, runId: string): Promise<RunTrace | undefined> {
-  const [row] = await db.select().from(t.runTraces).where(eq(t.runTraces.runId, runId));
+export async function getRunTrace(
+  db: Db,
+  workspaceId: string,
+  runId: string,
+): Promise<RunTrace | undefined> {
+  const [row] = await db
+    .select({ trace: t.runTraces.trace })
+    .from(t.runTraces)
+    .innerJoin(t.agentRuns, eq(t.agentRuns.id, t.runTraces.runId))
+    .where(and(eq(t.runTraces.runId, runId), eq(t.agentRuns.workspaceId, workspaceId)));
   return row ? (row.trace as RunTrace) : undefined;
+}
+
+export async function costForPrs(
+  db: Db,
+  workspaceId: string,
+  prIds: string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (prIds.length === 0) return out;
+  const runRows = await db
+    .select({ prId: t.agentRuns.prId, costUsd: t.agentRuns.costUsd })
+    .from(t.agentRuns)
+    .where(
+      and(
+        eq(t.agentRuns.workspaceId, workspaceId),
+        inArray(t.agentRuns.prId, prIds),
+        eq(t.agentRuns.status, 'done'),
+      ),
+    );
+  for (const run of runRows) {
+    if (!run.prId || run.costUsd == null) continue;
+    out.set(run.prId, (out.get(run.prId) ?? 0) + run.costUsd);
+  }
+  return out;
 }

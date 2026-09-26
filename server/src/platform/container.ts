@@ -25,8 +25,13 @@ import { PriceBook } from './price-book.js';
 import { ConfigError } from './errors.js';
 import { AgentsRepository } from '../modules/agents/repository.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
+import { SkillsRepository } from '../modules/skills/repository.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
+import type { RepoAccess } from '../modules/repos/types.js';
+import { RepoService } from '../modules/repos/service.js';
+import type { PullsSync } from '../modules/pulls/types.js';
+import { PullsService } from '../modules/pulls/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
 
@@ -48,6 +53,8 @@ export interface ContainerOverrides {
   llm?: Partial<Record<'openai' | 'anthropic' | 'openrouter', LLMProvider>>;
   /** repo-intel facade (T1.1+) — tests inject mock RepoIntel implementations. */
   repoIntel?: RepoIntel;
+  repos?: RepoAccess;
+  pulls?: PullsSync;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
@@ -72,7 +79,10 @@ export class Container {
   // `container.agentsRepo` instead of reaching into another module's folder.
   private _agentsRepo?: AgentsRepository;
   private _reviewRepo?: ReviewRepository;
+  private _skillsRepo?: SkillsRepository;
   private _repoIntel?: RepoIntel;
+  private _repos?: RepoAccess;
+  private _pulls?: PullsSync;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
@@ -88,7 +98,7 @@ export class Container {
 
   get git(): GitClient {
     if (this.overrides.git) return this.overrides.git;
-    this._git ??= new SimpleGitClient(this.config.cloneDir);
+    this._git ??= new SimpleGitClient(this.config.cloneDir, () => this.secrets.get('GITHUB_TOKEN'));
     return this._git;
   }
 
@@ -98,6 +108,10 @@ export class Container {
 
   get reviewRepo(): ReviewRepository {
     return (this._reviewRepo ??= new ReviewRepository(this.db));
+  }
+
+  get skillsRepo(): SkillsRepository {
+    return (this._skillsRepo ??= new SkillsRepository(this.db));
   }
 
   get codeIndex(): CodeIndex {
@@ -115,6 +129,18 @@ export class Container {
     if (this.overrides.repoIntel) return this.overrides.repoIntel;
     this._repoIntel ??= new RepoIntelService(this);
     return this._repoIntel;
+  }
+
+  get repos(): RepoAccess {
+    if (this.overrides.repos) return this.overrides.repos;
+    this._repos ??= new RepoService(this);
+    return this._repos;
+  }
+
+  get pulls(): PullsSync {
+    if (this.overrides.pulls) return this.overrides.pulls;
+    this._pulls ??= new PullsService(this);
+    return this._pulls;
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */
@@ -170,9 +196,17 @@ export class Container {
     return provider;
   }
 
-  private async buildLlm(id: 'openai' | 'anthropic' | 'openrouter'): Promise<LLMProvider> {
+  async candidateLlm(id: 'openai' | 'anthropic' | 'openrouter', key: string): Promise<LLMProvider> {
+    return this.overrides.llm?.[id] ?? this.buildLlm(id, key);
+  }
+
+  async candidateGithub(token: string): Promise<GitHubClient> {
+    return this.overrides.github ?? new OctokitGitHubClient(token);
+  }
+
+  private async buildLlm(id: 'openai' | 'anthropic' | 'openrouter', candidate?: string): Promise<LLMProvider> {
     if (id === 'openai') {
-      const key = await this.secrets.get('OPENAI_API_KEY');
+      const key = candidate ?? (await this.secrets.get('OPENAI_API_KEY'));
       if (!key) throw new ConfigError('OPENAI_API_KEY is not configured');
       return new OpenAIProvider(key);
     }
@@ -180,14 +214,14 @@ export class Container {
       // Single OpenRouter provider lives in reviewer-core (shared with the CI
       // runner); inject the PriceBook so cost attribution uses LIVE OpenRouter
       // prices (with the static table as a fallback) rather than a hardcoded one.
-      const key = await this.secrets.get('OPENROUTER_API_KEY');
+      const key = candidate ?? (await this.secrets.get('OPENROUTER_API_KEY'));
       if (!key) throw new ConfigError('OPENROUTER_API_KEY is not configured');
       return new OpenRouterProvider(key, {
         estimateCost: (model, tokensIn, tokensOut) =>
           this.priceBook.estimate(model, tokensIn, tokensOut),
       });
     }
-    const key = await this.secrets.get('ANTHROPIC_API_KEY');
+    const key = candidate ?? (await this.secrets.get('ANTHROPIC_API_KEY'));
     if (!key) throw new ConfigError('ANTHROPIC_API_KEY is not configured');
     return new AnthropicProvider(key);
   }

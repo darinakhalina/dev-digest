@@ -12,7 +12,20 @@ export function ToolCallRow({ tc }: { tc: ToolCall }) {
   const [open, setOpen] = React.useState(false);
   return (
     <div style={s.toolRow}>
-      <div onClick={() => setOpen((o) => !o)} style={s.toolHead}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+        style={s.toolHead}
+      >
         <Icon.Wrench size={13} style={s.toolIcon} />
         <span className="mono" style={s.toolName}>
           {tc.tool}

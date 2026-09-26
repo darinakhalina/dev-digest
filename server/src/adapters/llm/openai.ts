@@ -49,7 +49,7 @@ export class OpenAIProvider implements LLMProvider {
   private client: OpenAI;
 
   constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({ apiKey, maxRetries: 0 });
   }
 
   async listModels(): Promise<ModelInfo[]> {

@@ -1,6 +1,6 @@
 ---
 name: engineering-insights
-description: Records non-obvious findings about this repo in the INSIGHTS.md of the area they belong to — one per package, plus .claude/INSIGHTS.md for the agent setup — and reads back what earlier sessions recorded. Use this skill before the first edit of any coding task here, and again when wrapping one up. That includes a request that names no path because it continues earlier work — "carry on", "now do X", "check it", "fix that" — and a task resumed after the conversation was compacted. Also use it for work in server/, client/, reviewer-core/ or e2e/, for changes to a skill, a hook or a CLAUDE.md, after debugging, when something behaved unexpectedly, when a fix's cause was not obvious, or when the user mentions insights, learnings or lessons. Reading is part of the job even when the task looks simple. Skip it for renames, formatting and config tweaks that teach nothing.
+description: Records non-obvious findings about this repo in the INSIGHTS.md of the area they belong to — one per package, plus .claude/INSIGHTS.md for the agent setup — and reads back what earlier sessions recorded. Use this skill before the first edit of any coding task here, and again when wrapping one up. That includes a request that names no path because it continues earlier work — "carry on", "now do X", "check it", "fix that" — and a task resumed after the conversation was compacted. Also use it for work in server/, client/, reviewer-core/ or e2e/, for changes to a skill, a hook or an AGENTS.md, after debugging, when something behaved unexpectedly, when a fix's cause was not obvious, or when the user mentions insights, learnings or lessons. Reading is part of the job even when the task looks simple. Skip it for renames, formatting and config tweaks that teach nothing.
 allowed-tools: Read, Edit, Grep, Glob
 ---
 
@@ -11,7 +11,7 @@ Knowledge lives next to the thing it describes. Five files, one per area, no cen
 | Area | File |
 |---|---|
 | The four packages | `server/` · `client/` · `reviewer-core/` · `e2e/` → that package's `INSIGHTS.md` |
-| The agent setup itself — skills, hooks, `CLAUDE.md` wiring, settings | `.claude/INSIGHTS.md` |
+| The agent setup itself — skills, hooks, `AGENTS.md` wiring, settings | `.claude/INSIGHTS.md` |
 
 Pick by what the finding is *about*, not by where the file that revealed it happens to live. A
 finding about how skills load belongs to the harness even when it surfaced while working in
@@ -67,8 +67,8 @@ rules live where they will be read before acting:
 | The finding | Where it goes |
 |---|---|
 | Something learned about how this codebase behaves | here, as an entry |
-| A standing constraint — this must not be changed, and why | `Do not touch` in the root `CLAUDE.md` |
-| How to work inside one package | that package's `CLAUDE.md` |
+| A standing constraint — this must not be changed, and why | `Do not touch` in the root `AGENTS.md` |
+| How to work inside one package | that package's `AGENTS.md` |
 | Behaviour of a tool, identical in every repository | nowhere in this repo |
 
 Routing it correctly matters more than recording it. An entry filed here that should have been a

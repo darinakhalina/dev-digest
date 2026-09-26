@@ -14,12 +14,12 @@ import {
   ConfidenceNum,
   Button,
   Markdown,
+  SEV,
   type Severity,
   type Category,
 } from "@devdigest/ui";
 import type { FindingRecord, FindingActionKind } from "@devdigest/shared";
-import { SEV_COLOR, SEV_COLOR_FALLBACK } from "./constants";
-import { lineLabel } from "./helpers";
+import { lineLabel } from "@/lib/finding";
 import { githubBlobUrl } from "../../../../../../../lib/github-urls";
 import { s } from "./styles";
 
@@ -28,6 +28,7 @@ export function FindingCard({
   focused,
   defaultExpanded,
   onAction,
+  onSelect,
   pending,
   repoFullName,
   headSha,
@@ -35,6 +36,7 @@ export function FindingCard({
   f: FindingRecord;
   focused?: boolean;
   defaultExpanded?: boolean;
+  onSelect?: () => void;
   onAction?: (action: FindingActionKind, reply?: string) => void;
   pending?: boolean;
   repoFullName?: string | null;
@@ -42,7 +44,7 @@ export function FindingCard({
 }) {
   const t = useTranslations("prReview");
   const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
-  const sevColor = SEV_COLOR[f.severity] ?? SEV_COLOR_FALLBACK;
+  const sevColor = SEV[f.severity as Severity]?.c ?? "var(--text-muted)";
   const fileHref =
     repoFullName && headSha
       ? githubBlobUrl(repoFullName, headSha, f.file, f.start_line, f.end_line)
@@ -52,8 +54,26 @@ export function FindingCard({
   const muted = accepted || dismissed;
 
   return (
-    <div data-finding-id={f.id} style={s.card(!!focused, sevColor, muted)}>
-      <div onClick={() => setExpanded((e) => !e)} style={s.header}>
+    <div
+      role="listitem"
+      data-finding-id={f.id}
+      style={s.card(!!focused, sevColor, muted)}
+      onClick={onSelect}
+    >
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onClick={() => setExpanded((e) => !e)}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded((v) => !v);
+          }
+        }}
+        style={s.header}
+      >
         <div style={s.badgeWrap}>
           <SeverityBadge severity={f.severity as Severity} compact />
         </div>

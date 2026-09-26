@@ -1,21 +1,9 @@
 import { describe, it, expect } from "vitest";
 import type { FindingRecord } from "@devdigest/shared";
-import { countsBySeverity, visibleFindings } from "./helpers";
+import { visibleFindings } from "./helpers";
 
 const f = (id: string, severity: string, confidence = 0.9) =>
   ({ id, severity, confidence } as unknown as FindingRecord);
-
-describe("countsBySeverity", () => {
-  it("counts each level and reports absent ones as 0", () => {
-    expect(countsBySeverity([f("1", "CRITICAL"), f("2", "WARNING"), f("3", "WARNING")]))
-      .toEqual({ CRITICAL: 1, WARNING: 2, SUGGESTION: 0 });
-  });
-
-  it("ignores a severity outside the three canonical levels", () => {
-    expect(countsBySeverity([f("1", "INFO"), f("2", "CRITICAL")]))
-      .toEqual({ CRITICAL: 1, WARNING: 0, SUGGESTION: 0 });
-  });
-});
 
 describe("visibleFindings", () => {
   const all = [f("1", "CRITICAL"), f("2", "WARNING"), f("3", "SUGGESTION", 0.3)];

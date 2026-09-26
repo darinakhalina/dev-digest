@@ -27,3 +27,6 @@ test-results/
 # local working notes, never pushed
 WORKFLOW.md
 notes/
+
+# pr-self-review local gate state (per-dev, regenerated each run)
+.pr-self-review.json

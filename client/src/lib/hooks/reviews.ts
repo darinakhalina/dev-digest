@@ -6,6 +6,7 @@ import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, API_BASE } from "../api";
 import { notify } from "../toast";
+import { isLive } from "../run-status";
 import type {
   FindingActionKind,
   PrReviewComment,
@@ -43,7 +44,7 @@ export function usePrRuns(prId: string | null | undefined) {
     queryFn: () => api.get<RunSummary[]>(`/pulls/${prId}/runs`),
     enabled: !!prId,
     refetchInterval: (query) =>
-      (query.state.data ?? []).some((r) => r.status === "running") ? 4000 : false,
+      (query.state.data ?? []).some((r) => isLive(r.status)) ? 4000 : false,
   });
 }
 

@@ -174,6 +174,7 @@ export default function PRDetailPage() {
       {prId && traceRunId && (
         <RunTraceDrawer
           runId={traceRunId}
+          running={liveRunIds.includes(traceRunId)}
           prNumber={pr.number}
           findings={runs.find((r) => r.run_id === traceRunId)?.findings ?? []}
           agentName={runs.find((r) => r.run_id === traceRunId)?.agent_name ?? null}

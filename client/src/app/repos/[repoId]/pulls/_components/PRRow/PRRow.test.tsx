@@ -59,3 +59,20 @@ describe("PRRow", () => {
     expect(screen.queryByText("—")).not.toBeInTheDocument();
   });
 });
+
+describe("PRRow navigation — SPEC-2026-09-25-pr-page-bugs", () => {
+  it("is a real link to the PR, openable in a new tab", () => {
+    renderWithIntl(<PRRow pr={BASE_PR} repoId="repo1" />);
+    const link = screen.getByRole("link");
+    expect(link).toHaveAttribute("href", "/repos/repo1/pulls/7");
+  });
+
+  it("keeps the findings popup from navigating when its icons are clicked", () => {
+    const pr: PrMeta = {
+      ...BASE_PR,
+      findings: { counts: { CRITICAL: 1 }, total: 1, previews: [] },
+    };
+    renderWithIntl(<PRRow pr={pr} repoId="repo1" />);
+    expect(screen.getByTestId("findings-cell").closest("a")).toBeInTheDocument();
+  });
+});

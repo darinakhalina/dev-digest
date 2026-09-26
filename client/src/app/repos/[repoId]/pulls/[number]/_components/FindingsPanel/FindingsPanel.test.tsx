@@ -4,13 +4,17 @@ import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 
+const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
 vi.mock("../../../../../../../lib/hooks/reviews", () => ({
-  useFindingAction: () => ({ mutate: vi.fn(), isPending: false }),
+  useFindingAction: () => ({ mutate, isPending: false }),
 }));
 
 import { FindingsPanel } from "./FindingsPanel";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  mutate.mockClear();
+});
 
 const FINDINGS: FindingRecord[] = [
   {
@@ -149,5 +153,80 @@ describe("severity counters and filter", () => {
 
     expect(screen.getByText("No findings match")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /warning/i })).toBeInTheDocument();
+  });
+});
+
+describe("FindingsPanel filter persistence — INSIGHTS 2026-09-21", () => {
+  it("keeps an active filter across a refetch that hands down a new findings array", () => {
+    const { rerender } = renderWithIntl(<FindingsPanel findings={MANY} prId="pr1" />);
+    fireEvent.click(screen.getByRole("button", { name: /critical/i }));
+    expect(screen.queryByText("Warn one")).not.toBeInTheDocument();
+
+    rerender(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <FindingsPanel findings={MANY.map((f) => ({ ...f }))} prId="pr1" />
+      </NextIntlClientProvider>,
+    );
+
+    expect(screen.queryByText("Warn one")).not.toBeInTheDocument();
+    expect(screen.getByText("Crit one")).toBeInTheDocument();
+  });
+});
+
+describe("FindingsPanel keyboard shortcuts — SPEC-2026-09-25-pr-page-bugs", () => {
+  const LIST: FindingRecord[] = [
+    { ...FINDINGS[0]!, id: "k1", title: "First" },
+    { ...FINDINGS[0]!, id: "k2", title: "Second" },
+    { ...FINDINGS[0]!, id: "k3", title: "Third" },
+  ];
+
+  it("ignores a shortcut pressed outside the list", () => {
+    renderWithIntl(<FindingsPanel findings={LIST} prId="pr1" />);
+    fireEvent.keyDown(document.body, { key: "a" });
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("accepts the current finding when a is pressed in the list", () => {
+    renderWithIntl(<FindingsPanel findings={LIST} prId="pr1" />);
+    fireEvent.keyDown(screen.getByRole("list"), { key: "a" });
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate.mock.calls[0]![0]).toMatchObject({ findingId: "k1", action: "accept" });
+  });
+
+  it("ignores a shortcut held with a modifier", () => {
+    renderWithIntl(<FindingsPanel findings={LIST} prId="pr1" />);
+    const list = screen.getByRole("list");
+    fireEvent.keyDown(list, { key: "a", metaKey: true });
+    fireEvent.keyDown(list, { key: "a", ctrlKey: true });
+    fireEvent.keyDown(list, { key: "d", altKey: true });
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("acts on the card the pointer chose", () => {
+    renderWithIntl(<FindingsPanel findings={LIST} prId="pr1" />);
+    fireEvent.click(screen.getByText("Third"));
+    fireEvent.keyDown(screen.getByRole("list"), { key: "d" });
+    expect(mutate.mock.calls[0]![0]).toMatchObject({ findingId: "k3", action: "dismiss" });
+  });
+
+  it("acts only in the panel the key was pressed in", () => {
+    renderWithIntl(
+      <>
+        <FindingsPanel findings={[LIST[0]!]} prId="pr1" />
+        <FindingsPanel findings={[LIST[1]!]} prId="pr1" />
+      </>,
+    );
+    fireEvent.keyDown(screen.getAllByRole("list")[1]!, { key: "a" });
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate.mock.calls[0]![0]).toMatchObject({ findingId: "k2" });
+  });
+
+  it("does not let the shell see a shortcut it handled", () => {
+    const shell = vi.fn();
+    window.addEventListener("keydown", shell);
+    renderWithIntl(<FindingsPanel findings={LIST} prId="pr1" />);
+    fireEvent.keyDown(screen.getByRole("list"), { key: "a" });
+    window.removeEventListener("keydown", shell);
+    expect(shell).not.toHaveBeenCalled();
   });
 });

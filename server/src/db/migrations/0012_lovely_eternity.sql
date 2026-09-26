@@ -1,0 +1,1 @@
+CREATE INDEX "skills_ws_idx" ON "skills" USING btree ("workspace_id");

@@ -2,7 +2,7 @@
  * Pure helpers for the review service (side-effect free; operate purely on
  * their arguments — no DB / network / `this`).
  */
-import type { Finding } from '@devdigest/shared';
+import type { Finding, Verdict } from '@devdigest/shared';
 import type { FindingRow, PullRow, ReviewRow } from './repository.js';
 
 // reduceReviews + sliceDiff live in @devdigest/reviewer-core (pure engine logic
@@ -22,7 +22,7 @@ export interface ReviewDto {
   run_id: string | null;
   agent_name?: string | null;
   kind: 'summary' | 'review';
-  verdict: string | null;
+  verdict: Verdict | null;
   summary: string | null;
   score: number | null;
   model: string | null;
@@ -64,7 +64,7 @@ export function reviewToDto(
     run_id: review.runId,
     agent_name: agentName ?? null,
     kind: review.kind as 'summary' | 'review',
-    verdict: review.verdict,
+    verdict: review.verdict as Verdict | null,
     summary: review.summary,
     score: review.score,
     model: review.model,
@@ -79,9 +79,13 @@ export function reviewToDto(
  * The TRUSTED part (ours) states the task and the non-negotiable rule: review
  * the whole diff and never withhold a security/correctness finding.
  */
+export function prTitleText(pull: PullRow): string {
+  return `${pull.title}\nby ${pull.author}`;
+}
+
 export function taskLine(pull: PullRow): string {
   return (
-    `Review pull request #${pull.number} "${pull.title}" by ${pull.author}. ` +
+    `Review pull request #${pull.number}. ` +
     `Report only the distinct, high-value findings you can defend, each citing an exact ` +
     `file and line range that appears in the diff. There is no target or maximum count, ` +
     `and zero findings is a valid result — do not pad or repeat to reach a number. ` +

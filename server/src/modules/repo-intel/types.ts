@@ -140,6 +140,8 @@ export interface RepoIntel {
   indexRepo(repoId: string): Promise<IndexResult>;
   /** Incremental update against the last indexed SHA. */
   refreshIndex(repoId: string): Promise<IndexResult>;
+  enqueueIndex(repoId: string, owner?: string, name?: string): Promise<void>;
+  enqueueRefresh(repoId: string, owner?: string, name?: string): Promise<void>;
   /** Current index state — ALWAYS works, even degraded. */
   getIndexState(repoId: string): Promise<IndexState>;
 

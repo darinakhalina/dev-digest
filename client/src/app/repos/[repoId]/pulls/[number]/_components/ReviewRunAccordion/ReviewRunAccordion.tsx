@@ -6,17 +6,13 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Icon, Badge } from "@devdigest/ui";
 import type { ReviewRecord, Verdict } from "@devdigest/shared";
 import { FindingsPanel } from "../FindingsPanel";
 import { VerdictBanner } from "../VerdictBanner";
 import { useDeleteReview } from "../../../../../../../lib/hooks/reviews";
-
-const VERDICT_COLOR: Record<string, string> = {
-  request_changes: "var(--crit)",
-  comment: "var(--warn)",
-  approve: "var(--ok)",
-};
+import { VERDICT_META } from "@/lib/verdict";
 
 function formatWhen(iso: string): string {
   const d = new Date(iso);
@@ -31,8 +27,10 @@ export function ReviewRunAccordion({
   headSha,
   targetRunId = null,
   targetNonce = 0,
+  blockers: serverBlockers = null,
 }: {
   review: ReviewRecord;
+  blockers?: number | null;
   prId: string;
   defaultOpen?: boolean;
   repoFullName?: string | null;
@@ -51,10 +49,12 @@ export function ReviewRunAccordion({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetRunId, targetNonce, review.run_id]);
+  const t = useTranslations("prReview");
   const del = useDeleteReview(prId);
   const findings = review.findings;
-  const blockers = findings.filter((f) => f.severity === "CRITICAL" && !f.dismissed_at).length;
-  const verdictColor = review.verdict ? VERDICT_COLOR[review.verdict] ?? "var(--text-muted)" : "var(--text-muted)";
+  const blockers =
+    serverBlockers ?? findings.filter((f) => f.severity === "CRITICAL" && !f.dismissed_at).length;
+  const verdictMeta = review.verdict ? VERDICT_META[review.verdict] : null;
 
   return (
     <div
@@ -74,6 +74,7 @@ export function ReviewRunAccordion({
         tabIndex={0}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ") setOpen((o) => !o);
         }}
         style={{
@@ -88,9 +89,9 @@ export function ReviewRunAccordion({
       >
         <Icon.Cpu size={15} style={{ color: "var(--text-muted)" }} />
         <span style={{ fontWeight: 600, fontSize: 14 }}>{review.agent_name ?? "Agent"}</span>
-        {review.verdict && (
-          <Badge color={verdictColor} bg="transparent">
-            {review.verdict.replace("_", " ")}
+        {verdictMeta && (
+          <Badge color={verdictMeta.c} bg="transparent">
+            {t(`verdict.${verdictMeta.labelKey}`)}
           </Badge>
         )}
         <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>

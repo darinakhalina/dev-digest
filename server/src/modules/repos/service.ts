@@ -1,17 +1,14 @@
+import { z } from 'zod';
 import type { Container } from '../../platform/container.js';
 import { type Repo } from '@devdigest/shared';
 import { NotFoundError } from '../../platform/errors.js';
-import { RepoRepository } from './repository.js';
-import { parseRepoUrl, withGitHubToken, toRepoDto } from './helpers.js';
+import { RepoRepository, type RepoRow } from './repository.js';
+import { parseRepoUrl, toRepoDto } from './helpers.js';
 import {
   CLONE_JOB_KIND,
   CLONE_DEPTH,
-  GITHUB_TOKEN_SECRET,
 } from './constants.js';
-import {
-  INDEX_JOB_KIND,
-  REFRESH_JOB_KIND,
-} from '../repo-intel/constants.js';
+import type { RepoAccess } from './types.js';
 
 /**
  * F1 — repos service. Business logic for the Repositories feature:
@@ -23,37 +20,40 @@ import {
  */
 
 /** Payload enqueued for (and consumed by) the `clone` job. */
-export interface CloneJobPayload {
-  repoId: string;
-  owner: string;
-  name: string;
-  url: string;
-}
+export const CloneJobPayload = z.object({
+  repoId: z.string(),
+  owner: z.string(),
+  name: z.string(),
+  url: z.string(),
+});
+export type CloneJobPayload = z.infer<typeof CloneJobPayload>;
 
-export class RepoService {
+export class RepoService implements RepoAccess {
   private repo: RepoRepository;
 
   constructor(private container: Container) {
     this.repo = new RepoRepository(container.db);
   }
 
-  /**
-   * Register the `clone` job handler once. Authenticates the clone with the
-   * stored GitHub PAT (so private repos work), clones via the GitClient adapter,
-   * then persists the resulting path + last_polled_at.
-   */
+  listForWorkspace(workspaceId: string): Promise<RepoRow[]> {
+    return this.repo.list(workspaceId);
+  }
+
+  touchLastPolled(repoId: string): Promise<void> {
+    return this.repo.touchLastPolled(repoId);
+  }
+
   registerCloneJobHandler(): void {
-    this.container.jobs.register(CLONE_JOB_KIND, async (payload) => {
-      await this.runCloneJob(payload as CloneJobPayload);
+    this.container.jobs.register(CLONE_JOB_KIND, CloneJobPayload, async (payload, { signal }) => {
+      await this.runCloneJob(payload, signal);
     });
   }
 
-  async runCloneJob(payload: CloneJobPayload): Promise<void> {
+  async runCloneJob(payload: CloneJobPayload, signal?: AbortSignal): Promise<void> {
     const { repoId, owner, name, url } = payload;
-    const token = await this.container.secrets.get(GITHUB_TOKEN_SECRET);
-    const cloneUrl = token ? withGitHubToken(url, token) : url;
-    const { path } = await this.container.git.clone({ owner, name }, cloneUrl, {
+    const { path } = await this.container.git.clone({ owner, name }, url, {
       depth: CLONE_DEPTH,
+      signal,
     });
     await this.repo.updateClonePath(repoId, path);
 
@@ -62,19 +62,12 @@ export class RepoService {
     // job under JobRunner's timeout/retry. If the handler isn't registered
     // (e.g. repo-intel disabled at module wiring), enqueue() throws — log and
     // continue so the clone result is preserved either way.
-    const workspaceId = await this.repo.workspaceIdFor(repoId);
-    if (workspaceId) {
-      try {
-        await this.container.jobs.enqueue(workspaceId, INDEX_JOB_KIND, {
-          repoId,
-          owner,
-          name,
-        });
-      } catch {
-        // No handler registered or transient enqueue failure — clone has
-        // already succeeded, so we don't fail the job for an index-followup
-        // miss. The user can hit POST /repos/:id/reindex to retry.
-      }
+    try {
+      await this.container.repoIntel.enqueueIndex(repoId, owner, name);
+    } catch {
+      // No handler registered or transient enqueue failure — clone has
+      // already succeeded, so we don't fail the job for an index-followup
+      // miss. The user can hit POST /repos/:id/reindex to retry.
     }
   }
 
@@ -126,11 +119,7 @@ export class RepoService {
     // refresh fires before the new clone settles, it cheaply exits; if after,
     // it picks up the new HEAD.
     try {
-      await this.container.jobs.enqueue(workspaceId, REFRESH_JOB_KIND, {
-        repoId: repo.id,
-        owner: repo.owner,
-        name: repo.name,
-      });
+      await this.container.repoIntel.enqueueRefresh(repo.id, repo.owner, repo.name);
     } catch {
       // No handler / transient enqueue failure — refresh button is best-effort.
     }

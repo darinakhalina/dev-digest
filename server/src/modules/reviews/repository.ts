@@ -1,6 +1,7 @@
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
+import { TransactionRollbackError } from 'drizzle-orm';
+import type { Finding, Intent, PrFindings, RunSummary, RunTrace } from '@devdigest/shared';
 
 /**
  * A2 — review data-access. The ONLY layer touching the DB for the review
@@ -59,6 +60,12 @@ export class ReviewRepository {
     return reviewRepo.insertFindings(this.db, reviewId, findings);
   }
 
+  reviewSummaryForPrs(
+    prIds: string[],
+  ): Promise<Map<string, { score: number | null; findings: PrFindings | null }>> {
+    return reviewRepo.reviewSummaryForPrs(this.db, prIds);
+  }
+
   /** Reviews for a PR (newest first), each with its findings. */
   reviewsForPull(prId: string): Promise<{ review: ReviewRow; findings: FindingRow[] }[]> {
     return reviewRepo.reviewsForPull(this.db, prId);
@@ -88,8 +95,16 @@ export class ReviewRepository {
   }
 
   /** Mark a still-running run as cancelled (no-op if it already finished). */
-  cancelRunIfRunning(runId: string): Promise<boolean> {
-    return runRepo.cancelRunIfRunning(this.db, runId);
+  cancelRunIfRunning(workspaceId: string, runId: string): Promise<boolean> {
+    return runRepo.cancelRunIfRunning(this.db, workspaceId, runId);
+  }
+
+  async runInWorkspace(workspaceId: string, runId: string): Promise<boolean> {
+    return (await runRepo.runStatusInWorkspace(this.db, workspaceId, runId)) !== undefined;
+  }
+
+  runStatusInWorkspace(workspaceId: string, runId: string): Promise<string | null | undefined> {
+    return runRepo.runStatusInWorkspace(this.db, workspaceId, runId);
   }
 
   /** On boot: any run still 'running' is orphaned (its process died / restarted),
@@ -165,8 +180,34 @@ export class ReviewRepository {
       /** Failure reason (status='failed') / cancellation note. Null clears it. */
       error?: string | null;
     },
-  ): Promise<void> {
+  ): Promise<boolean> {
     return runRepo.completeAgentRun(this.db, runId, values);
+  }
+
+  async persistRunOutcome(input: {
+    review: Parameters<typeof reviewRepo.insertReview>[1];
+    findings: Finding[];
+    reviewedSha: string;
+    complete: Parameters<typeof runRepo.completeAgentRun>[2];
+  }): Promise<{ review: ReviewRow; findings: FindingRow[] } | null> {
+    const runId = input.review.runId;
+    if (!runId) throw new Error('persistRunOutcome needs a run id');
+    try {
+      return await this.db.transaction(async (tx) => {
+        const review = await reviewRepo.insertReview(tx, input.review);
+        const findings = await reviewRepo.insertFindings(tx, review.id, input.findings);
+        await pullRepo.markReviewed(tx, input.review.prId, input.reviewedSha);
+        const completed = await runRepo.completeAgentRun(tx, runId, {
+          ...input.complete,
+          findingsCount: findings.length,
+        });
+        if (!completed) tx.rollback();
+        return { review, findings };
+      });
+    } catch (err) {
+      if (err instanceof TransactionRollbackError) return null;
+      throw err;
+    }
   }
 
   /** Record the head SHA a review ran against (PR-list freshness derivation). */
@@ -179,7 +220,11 @@ export class ReviewRepository {
     return runRepo.saveRunTrace(this.db, runId, trace);
   }
 
-  getRunTrace(runId: string): Promise<RunTrace | undefined> {
-    return runRepo.getRunTrace(this.db, runId);
+  getRunTrace(workspaceId: string, runId: string): Promise<RunTrace | undefined> {
+    return runRepo.getRunTrace(this.db, workspaceId, runId);
+  }
+
+  costForPrs(workspaceId: string, prIds: string[]): Promise<Map<string, number>> {
+    return runRepo.costForPrs(this.db, workspaceId, prIds);
   }
 }

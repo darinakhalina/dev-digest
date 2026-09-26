@@ -1,10 +1,11 @@
 import { type Repo } from '@devdigest/shared';
-import * as t from '../../db/schema.js';
+import type { RepoRow } from '../../db/rows.js';
 import { AppError } from '../../platform/errors.js';
 import {
-  GITHUB_URL_REGEX,
-  GIT_TOKEN_USERNAME,
-  GITHUB_HTTPS_HOST,
+  GITHUB_HOST,
+  GITHUB_OWNER_RE,
+  GITHUB_REPO_NAME_RE,
+  GITHUB_SSH_RE,
 } from './constants.js';
 
 /**
@@ -12,36 +13,38 @@ import {
  * Pure functions only — no I/O, no DB, no container.
  */
 
-/** Parse `owner`/`name` from a GitHub URL (https or ssh form). */
-export function parseRepoUrl(url: string): { owner: string; name: string } {
-  // https://github.com/owner/repo(.git)  |  git@github.com:owner/repo.git
-  const match = url.match(GITHUB_URL_REGEX);
-  if (!match?.[1] || !match[2]) {
-    throw new AppError('invalid_repo_url', `Could not parse owner/repo from '${url}'`, 400);
-  }
-  return { owner: match[1], name: match[2] };
+function invalidRepoUrl(url: string): AppError {
+  return new AppError('invalid_repo_url', `Not a GitHub repository address: '${url}'`, 400);
 }
 
-/**
- * Embed a token into an https github.com URL so private clones authenticate
- * non-interactively. SSH/non-GitHub URLs are left untouched.
- */
-export function withGitHubToken(url: string, token: string): string {
+function githubPathOf(url: string): string | null {
+  const ssh = url.match(GITHUB_SSH_RE);
+  if (ssh) return ssh[1] ?? null;
+  let u: URL;
   try {
-    const u = new URL(url);
-    if (u.protocol === 'https:' && u.hostname === GITHUB_HTTPS_HOST) {
-      u.username = GIT_TOKEN_USERNAME;
-      u.password = token;
-      return u.toString();
-    }
+    u = new URL(url);
   } catch {
-    /* non-URL (e.g. git@github.com:...) — leave as-is */
+    return null;
   }
-  return url;
+  if (u.protocol !== 'https:' || u.hostname !== GITHUB_HOST) return null;
+  if (u.username || u.password || u.port || u.search || u.hash) return null;
+  return u.pathname.slice(1);
+}
+
+export function parseRepoUrl(url: string): { owner: string; name: string } {
+  const path = githubPathOf(url);
+  if (path === null) throw invalidRepoUrl(url);
+  const segments = path.replace(/\/$/, '').split('/');
+  if (segments.length !== 2) throw invalidRepoUrl(url);
+  const owner = segments[0]!;
+  const name = segments[1]!.replace(/\.git$/, '');
+  if (!GITHUB_OWNER_RE.test(owner)) throw invalidRepoUrl(url);
+  if (!GITHUB_REPO_NAME_RE.test(name) || name === '.' || name === '..') throw invalidRepoUrl(url);
+  return { owner, name };
 }
 
 /** Map a persisted repo row to the API `Repo` DTO. */
-export function toRepoDto(row: typeof t.repos.$inferSelect): Repo {
+export function toRepoDto(row: RepoRow): Repo {
   return {
     id: row.id,
     workspace_id: row.workspaceId,

@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
 import type { PrMeta } from "@/lib/types";
@@ -14,16 +14,15 @@ import { FindingsCell } from "../FindingsCell";
 
 export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const t = useTranslations("prReview");
-  const router = useRouter();
   const [h, setH] = React.useState(false);
   const st = STATUS_META[pr.status] ?? STATUS_META.needs_review!;
   const { size, lines } = sizeOf(pr);
   const reviewed = pr.score != null; // null score ⇒ PR has never been reviewed
   return (
-    <div
+    <Link
+      href={`/repos/${repoId}/pulls/${pr.number}`}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      onClick={() => router.push(`/repos/${repoId}/pulls/${pr.number}`)}
       style={s.row(h)}
     >
       <div style={s.rowTitleCell}>
@@ -55,7 +54,7 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
           <span style={s.muted}>—</span>
         )}
       </div>
-      <div>
+      <div onClick={(e) => e.preventDefault()}>
         <FindingsCell findings={pr.findings} />
       </div>
       <div>
@@ -67,6 +66,6 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
         <RunCostBadge variant="compact" cost={pr.cost_usd} />
       </div>
       <div style={s.updatedCell}>{relativeTime(pr.updated_at)}</div>
-    </div>
+    </Link>
   );
 }

@@ -1,0 +1,58 @@
+# client — @devdigest/web
+
+Next.js 15 studio UI. The root `AGENTS.md` applies; this adds client-only rules.
+
+## Use when
+
+- Adding a page or a hook, or wiring to the API → read `README.md` (route map → hooks → `api.ts`)
+- Moving the Server/Client boundary, adding a query key or an invalidation, touching the live-run
+  stream, or importing a contract as a value → read `docs/01-ui-architecture.md`
+- Adding or changing a UI component → read `src/vendor/ui/README.md`, then add it to `/showcase`
+- Implementing a feature → read its spec in `specs/`; write one first if it is missing. A feature
+  that also needs the server goes in the repository-root `specs/` instead
+- Changing how findings are counted, filtered or previewed on a PR page → read
+  `specs/2026-09-21-findings-severity-filter.md` first: it states which of that behaviour is a
+  promise and how each promise is checked
+- Something surprised you, or a fix was not obvious → `INSIGHTS.md`, through the
+  `engineering-insights` skill, which carries the format and the rules
+- Need depth the README does not give → `docs/`
+
+## Rules not visible from any single file
+
+- Pages are thin. Feature logic lives in the route's `_components/<Name>/` — PascalCase folder and
+  file, with a colocated `*.test.tsx`.
+- A component used by more than one route lives in `src/components/<kebab-name>/` instead — a
+  kebab-case folder around a PascalCase file and an `index.ts` (`finding-preview/FindingPreviewPanel.tsx`),
+  imported as `@/components/<kebab-name>`. Keep the two casings apart: the folder name then tells you
+  whether a component is route-private or shared without opening it. A route never imports another
+  route's `_components/`, a parent route's included — promote the component instead.
+- Relative imports have **no** extension here (`from "./core"`), unlike `server` and
+  `reviewer-core` — Next bundles this code, it does not run as raw ESM.
+- Data flows only through `src/lib/hooks/*` → `src/lib/api.ts` (TanStack Query). No `fetch` in components.
+- UI primitives come only from the `@devdigest/ui` barrel — never import a layer file directly.
+  Colors come from CSS variables, never hard-coded.
+- User-facing strings live in `messages/en/<area>.json` (next-intl), not inline in JSX.
+- Contracts come from `src/vendor/shared`, which can lag the server's copy. When a type looks wrong,
+  diff it against `server/src/vendor/shared`. Values (Zod schemas, not just types) import from the
+  same barrel and bundle correctly only because `next.config.mjs` sets `resolve.extensionAlias` —
+  the vendored files carry the server's `.js` specifiers. Do not remove it.
+
+## Commands (client-only)
+
+```sh
+pnpm dev          # :3000
+pnpm test         # vitest + jsdom, fetch mocked — needs neither API nor browser
+pnpm typecheck
+pnpm build        # the only check that exercises the bundler — see below
+```
+
+`typecheck` and `test` both resolve a `./x.js` specifier to `x.ts` themselves; the bundler does
+not. A broken import therefore stays green in both and fails only in `pnpm build` or `pnpm dev`.
+Run one of those before calling client work done.
+
+**Stop `pnpm dev` before `pnpm build`.** They share `.next`, so a build run against a live dev
+server overwrites its chunks and the page then dies with `Cannot find module
+'./vendor-chunks/…'` — an error that names a dependency and says nothing about the cause.
+Recover by deleting `.next` and starting `dev` again.
+
+Env: `NEXT_PUBLIC_API_BASE` (default `http://localhost:3001`).

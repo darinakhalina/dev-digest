@@ -33,7 +33,7 @@ Two page shapes coexist, and the difference is not stylistic. `agents/page.tsx` 
 `settings/[section]/page.tsx` are Server Components that render one client view and nothing else.
 The other five pages carry the directive because they call hooks in the page body — `pulls/page.tsx`
 uses `useParams`, `useSearchParams` and `usePulls` directly
-(`client/src/app/repos/[repoId]/pulls/page.tsx:3`). `CLAUDE.md` § *Rules not visible from any single
+(`client/src/app/repos/[repoId]/pulls/page.tsx:3`). `AGENTS.md` § *Rules not visible from any single
 file* asks for the first shape ("pages are thin"); the codebase is two-sevenths of the way there.
 Treat the server shell as the target when touching a page, not as a pattern already in force.
 
@@ -113,7 +113,7 @@ stream-borne failure mode needs the same treatment — it will not inherit the g
 ## Contracts are a compile-time promise only
 
 Types come from `src/vendor/shared`, a copy of the server's contracts that is **not** synchronised
-with it (root [`CLAUDE.md`](../../CLAUDE.md) § *Gotchas*). Nothing checks them at runtime: `api.ts`
+with it (root [`AGENTS.md`](../../AGENTS.md) § *Gotchas*). Nothing checks them at runtime: `api.ts`
 casts the parsed body and returns it (`client/src/lib/api.ts:62`). A server that changes a response
 shape produces `undefined` deep inside a component, not a validation error at the boundary — the
 contract is a promise the compiler believes, not one the client enforces.
@@ -128,7 +128,7 @@ config.resolve.extensionAlias = { ".js": [".ts", ".tsx", ".js"] };
 files on disk are `.ts`. `tsc` and vitest resolve that themselves; the bundler does not. **Remove
 that line and `pnpm typecheck` and `pnpm test` both stay green while `pnpm build` and `pnpm dev`
 fail with a module-not-found pointing at the importing file** — which is why client work is not done
-until a build or the running app has seen it (`../CLAUDE.md` § *Commands*).
+until a build or the running app has seen it (`../AGENTS.md` § *Commands*).
 
 The trap is sharper than it reads, because nothing currently exercises the line. Every import from
 `@devdigest/shared` in application code is an `import type`, erased before bundling; the only
@@ -158,7 +158,7 @@ quietly.
 | For | Go to |
 |---|---|
 | The route list, the hooks → `api.ts` chain, env vars | [`../README.md`](../README.md) |
-| Component rules, import conventions, the build/dev gotcha in full | [`../CLAUDE.md`](../CLAUDE.md) |
+| Component rules, import conventions, the build/dev gotcha in full | [`../AGENTS.md`](../AGENTS.md) |
 | What the server does between the trigger and the findings | [`../../server/docs/01-review-run.md`](../../server/docs/01-review-run.md) |
 | UI primitives, tokens, the showcase | [`../src/vendor/ui/README.md`](../src/vendor/ui/README.md) |
 | Which findings survive, and how the score is computed | [`../../reviewer-core/README.md`](../../reviewer-core/README.md) |

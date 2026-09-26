@@ -29,7 +29,8 @@
   "panel": {
     "hideLowConfidence": "Hide low confidence",
     "noMatchTitle": "No findings match",
-    "noMatchBody": "Adjust the filters above, or run a review to generate findings."
+    "noMatchBody": "Adjust the filters above, or run a review to generate findings.",
+    "listLabel": "Findings — j/k to move, a to accept, d to dismiss"
   },
   "runReview": {
     "runAll": "Run all enabled agents",
