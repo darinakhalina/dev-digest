@@ -10,11 +10,11 @@ import {
   SelectInput,
   Skeleton,
   TextInput,
-  Textarea,
   Toggle,
 } from "@devdigest/ui";
 import { SKILL_NAME_RE, type SkillType } from "@devdigest/shared";
 import { useCreateSkillFromConventions, useSkillProposal } from "@/lib/hooks/conventions";
+import { SkillBodyEditor } from "../SkillBodyEditor";
 import { s } from "./styles";
 import { useToast } from "@/lib/toast";
 
@@ -44,7 +44,7 @@ export function CreateSkillModal({
   const [description, setDescription] = React.useState("");
   const [body, setBody] = React.useState("");
   const [type, setType] = React.useState<SkillType>("convention");
-  const [enabled, setEnabled] = React.useState(false);
+  const [enabled, setEnabled] = React.useState(true);
   const [ready, setReady] = React.useState(false);
 
   const load = proposal.mutate;
@@ -156,7 +156,11 @@ export function CreateSkillModal({
           </div>
 
           <FormField label={t("bodyLabel")} required hint={t("bodyHint")}>
-            <Textarea value={body} onChange={setBody} rows={16} mono />
+            <SkillBodyEditor
+              value={body}
+              onChange={setBody}
+              filename={`${name || "skill"}.md`}
+            />
           </FormField>
         </>
       )}

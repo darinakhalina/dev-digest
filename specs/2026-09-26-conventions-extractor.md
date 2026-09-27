@@ -367,13 +367,16 @@ result or shows the first one was luck.
 Three questions that were open on first writing have been settled, and are recorded here rather
 than silently applied, because each was a real choice with a rejected alternative.
 
-- **The proposed skill starts disabled.** The design the author supplied shows its enable switch
-  already on; the copy shipped for that same screen says it is off so the merged body can be read
-  first. The copy wins: enabling is a second, deliberate act. A screen that both asks someone to
-  review a body and pre-arms it has not really asked. Worth naming plainly, because it bears on
-  every appeal to the design in this document: those screens reached this work as images and are
-  not in the repository, so a reader cannot check them. Where the design and something versioned
-  disagree, the versioned thing wins.
+- **The proposed skill starts enabled.** This reverses the first decision recorded here, and the
+  reversal is worth keeping visible. The argument for starting disabled was that a body assembled
+  by a model becomes the operator's only because a person read it, so a screen that pre-arms what
+  it is asking you to review has not really asked. The design says enabled, the author confirmed
+  the design is the authority, and the reading that survives is narrower but still holds: what
+  makes the body the operator's is that AC-24 forces the proposal in front of them and lets them
+  change or abandon it. The switch is the last thing they pass on the way out, not something
+  hidden. If that proposal step is ever skipped or defaulted through, this no longer holds and the
+  body has to be delimited like an import — that part of the reasoning is unchanged.
+
 - **No confidence threshold.** Everything verified is shown, strongest first. Filtering by the
   model's own confidence would be trusting the model's self-assessment to decide what a human sees,
   which is the same mistake as trusting its evidence. The reader is the filter — but if scans
