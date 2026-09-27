@@ -55,6 +55,7 @@ export function useUpdateSkill() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["skills"] });
       qc.setQueryData(["skill", data.id], data);
+      qc.invalidateQueries({ queryKey: ["skill-versions", data.id] });
     },
   });
 }
@@ -66,6 +67,7 @@ export function useDeleteSkill() {
     onSuccess: (_d, id) => {
       qc.invalidateQueries({ queryKey: ["skills"] });
       qc.removeQueries({ queryKey: ["skill", id] });
+      qc.removeQueries({ queryKey: ["skill-versions", id] });
       qc.invalidateQueries({ queryKey: ["agent-skills"] });
     },
   });

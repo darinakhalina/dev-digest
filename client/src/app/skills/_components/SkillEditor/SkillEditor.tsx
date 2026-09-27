@@ -24,9 +24,9 @@ export function SkillEditor({ skill, tab, onTab }: SkillEditorProps) {
     <div style={s.wrap}>
       <Tabs tabs={tabs} value={tab} onChange={onTab} pad="0 28px" />
       <div style={s.body}>
-        {tab === "config" && <ConfigTab skill={skill} />}
-        {tab === "preview" && <PreviewTab skill={skill} />}
-        {tab === "versions" && <VersionsTab skill={skill} />}
+        {tab === "config" && <ConfigTab key={skill.id} skill={skill} />}
+        {tab === "preview" && <PreviewTab key={skill.id} skill={skill} />}
+        {tab === "versions" && <VersionsTab key={skill.id} skill={skill} />}
       </div>
     </div>
   );
