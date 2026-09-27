@@ -66,7 +66,7 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     return skill;
   });
 
-  app.put('/skills/:id', { schema: { params: IdParams, body: UpdateSkillBody } }, async (req) => {
+  app.patch('/skills/:id', { schema: { params: IdParams, body: UpdateSkillBody } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);
     const skill = await service.update(workspaceId, req.params.id, req.body);
     if (!skill) throw new NotFoundError('Skill not found');
