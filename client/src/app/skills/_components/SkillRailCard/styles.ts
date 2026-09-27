@@ -1,15 +1,25 @@
 import type { CSSProperties } from "react";
+import type { SkillType } from "@devdigest/shared";
+
+export const TYPE_COLOR: Record<SkillType, string> = {
+  rubric: "var(--info)",
+  convention: "var(--accent)",
+  security: "var(--warn)",
+  custom: "var(--text-secondary)",
+};
 
 export const s = {
   card: (active: boolean, enabled: boolean): CSSProperties => ({
     padding: 14,
     borderRadius: 8,
+    cursor: "pointer",
     textAlign: "left",
     width: "100%",
-    cursor: "pointer",
-    border: "1px solid " + (active ? "var(--border-strong)" : "var(--border)"),
+    display: "block",
+    border: `1px solid ${active ? "var(--border-strong)" : "var(--border)"}`,
     background: active ? "var(--bg-hover)" : "var(--bg-elevated)",
-    opacity: enabled ? 1 : 0.6,
+    opacity: enabled ? 1 : 0.62,
+    marginBottom: 10,
   }),
   headerRow: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
   iconBox: {
@@ -22,31 +32,17 @@ export const s = {
     placeItems: "center",
     flexShrink: 0,
   } satisfies CSSProperties,
-  nameButton: {
+  name: {
+    fontSize: 13,
+    fontWeight: 600,
     flex: 1,
     minWidth: 0,
-    fontSize: 14,
-    fontWeight: 600,
-    background: "none",
-    border: "none",
-    padding: 0,
-    cursor: "pointer",
-    color: "var(--text-primary)",
-    textAlign: "left",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
   } satisfies CSSProperties,
-  iconButton: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    color: "var(--text-muted)",
-    display: "inline-flex",
-    padding: 4,
-  } satisfies CSSProperties,
   description: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: "var(--text-muted)",
     margin: "8px 0",
     lineHeight: 1.4,
@@ -54,11 +50,19 @@ export const s = {
     overflow: "hidden",
     textOverflow: "ellipsis",
   } satisfies CSSProperties,
-  metaRow: {
+  badgeRow: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     flexWrap: "wrap",
   } satisfies CSSProperties,
-  source: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  footer: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    fontSize: 11.5,
+    color: "var(--text-muted)",
+  } satisfies CSSProperties,
+  agents: { flex: 1 } satisfies CSSProperties,
 } as const;

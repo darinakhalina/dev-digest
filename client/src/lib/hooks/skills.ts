@@ -8,6 +8,7 @@ import type {
   SkillImportPreview,
   SkillSource,
   SkillType,
+  SkillVersion,
 } from "@devdigest/shared";
 
 export function useSkills() {
@@ -96,5 +97,26 @@ export function useSetAgentSkills() {
     mutationFn: ({ agentId, skillIds }: { agentId: string; skillIds: string[] }) =>
       api.post<AgentSkillLink[]>(`/agents/${agentId}/skills`, { skill_ids: skillIds }),
     onSuccess: (_d, { agentId }) => qc.invalidateQueries({ queryKey: ["agent-skills", agentId] }),
+  });
+}
+
+export function useSkillVersions(id: string | null | undefined) {
+  return useQuery({
+    queryKey: ["skill-versions", id],
+    queryFn: () => api.get<SkillVersion[]>(`/skills/${id}/versions`),
+    enabled: !!id,
+  });
+}
+
+export function useRestoreSkillVersion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      api.post<Skill>(`/skills/${id}/restore`, { version }),
+    onSuccess: (data) => {
+      qc.setQueryData(["skill", data.id], data);
+      qc.invalidateQueries({ queryKey: ["skills"] });
+      qc.invalidateQueries({ queryKey: ["skill-versions", data.id] });
+    },
   });
 }

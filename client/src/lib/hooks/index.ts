@@ -45,6 +45,8 @@ export {
   useUpdateSkill,
   useDeleteSkill,
   useImportSkillPreview,
+  useSkillVersions,
+  useRestoreSkillVersion,
   useAgentSkills,
   useSetAgentSkills,
   type CreateSkillInput,

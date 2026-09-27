@@ -8,7 +8,7 @@ import { useUpdateSkill } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
 import { s } from "./styles";
 
-export function SkillForm({ skill }: { skill: Skill }) {
+export function ConfigTab({ skill }: { skill: Skill }) {
   const t = useTranslations("skills");
   const toast = useToast();
   const update = useUpdateSkill();
