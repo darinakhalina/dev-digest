@@ -284,13 +284,13 @@ export const ConventionSkillProposal = z.object({
 export type ConventionSkillProposal = z.infer<typeof ConventionSkillProposal>;
 
 export const ConventionSkillProposalRequest = z.object({
-  convention_ids: z.array(z.string()).min(1),
+  convention_ids: z.array(z.string().uuid()).min(1),
   name: SkillName.optional(),
 });
 export type ConventionSkillProposalRequest = z.infer<typeof ConventionSkillProposalRequest>;
 
 export const CreateSkillFromConventionsRequest = z.object({
-  convention_ids: z.array(z.string()).min(1),
+  convention_ids: z.array(z.string().uuid()).min(1),
   name: SkillName,
   description: z.string().min(1),
   type: SkillType.default('convention'),

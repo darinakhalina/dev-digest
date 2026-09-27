@@ -59,6 +59,7 @@ export interface ContainerOverrides {
   /** repo-intel facade (T1.1+) — tests inject mock RepoIntel implementations. */
   repoIntel?: RepoIntel;
   repos?: RepoAccess;
+  skills?: SkillAuthoring;
   pulls?: PullsSync;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
@@ -122,6 +123,7 @@ export class Container {
   }
 
   get skills(): SkillAuthoring {
+    if (this.overrides.skills) return this.overrides.skills;
     return (this._skills ??= new SkillsService(this));
   }
 

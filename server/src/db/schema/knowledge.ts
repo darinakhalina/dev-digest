@@ -64,6 +64,7 @@ export const conventionScans = pgTable(
   },
   (t) => ({
     latestIdx: index('convention_scans_latest_idx').on(t.workspaceId, t.repoId, t.createdAt),
+    repoIdx: index('convention_scans_repo_idx').on(t.repoId),
   }),
 );
 
@@ -94,6 +95,9 @@ export const conventions = pgTable(
   },
   (t) => ({
     scanIdx: index('conventions_scan_idx').on(t.scanId),
+    wsRepoIdx: index('conventions_ws_repo_idx').on(t.workspaceId, t.repoId),
+    repoIdx: index('conventions_repo_idx').on(t.repoId),
     statusCk: check('conventions_status_ck', sql`${t.status} in ('pending','accepted','rejected')`),
+    confidenceCk: check('conventions_confidence_ck', sql`${t.confidence} between 0 and 1`),
   }),
 );

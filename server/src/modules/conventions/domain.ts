@@ -178,8 +178,7 @@ export function describeSkill(
   candidates: RenderableCandidate[],
 ): string {
   if (candidates.length === 1) return asInlineContent(candidates[0]!.rule);
-  const noun = candidates.length === 1 ? 'house convention' : 'house conventions';
-  return `${candidates.length} ${noun} extracted from ${repoFullName}`;
+  return `${candidates.length} house conventions extracted from ${repoFullName}`;
 }
 
 export function proposeSkillName(

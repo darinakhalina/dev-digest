@@ -10,7 +10,12 @@ import type {
   Skill,
   SkillType,
 } from '@devdigest/shared';
-import { ExternalServiceError, NotFoundError, ValidationError } from '../../platform/errors.js';
+import {
+  ConflictError,
+  ExternalServiceError,
+  NotFoundError,
+  ValidationError,
+} from '../../platform/errors.js';
 import { ATTEMPT_TIMEOUT_MS, MAX_CANDIDATES, SCAN_TIMEOUT_MS } from './constants.js';
 import {
   describeSkill,
@@ -113,29 +118,32 @@ export class ConventionsService {
     const repo = await this.requireRepo(workspaceId, repoId);
 
     if (scansInFlight.has(repoId)) {
-      throw new ValidationError('A scan of this repository is already running', {
+      throw new ConflictError('A scan of this repository is already running', {
         repo_id: repoId,
       });
     }
     scansInFlight.add(repoId);
+    let releaseOnExit = true;
     try {
       const sample = await this.takeSample(repo);
       const { provider, model } = await this.deps.resolveModel(workspaceId);
       const llm = await this.deps.llm(provider);
 
-      const result = await withDeadline(
-        llm.completeStructured({
-          model,
-          schema: ConventionExtractionOutput,
-          schemaName: 'ConventionExtraction',
-          messages: buildConventionsPrompt(sample),
-          timeoutMs: ATTEMPT_TIMEOUT_MS,
-          maxRetries: 1,
-        }),
-        SCAN_TIMEOUT_MS,
-      );
+      const work = llm.completeStructured({
+        model,
+        schema: ConventionExtractionOutput,
+        schemaName: 'ConventionExtraction',
+        messages: buildConventionsPrompt(sample),
+        timeoutMs: ATTEMPT_TIMEOUT_MS,
+        maxRetries: 1,
+      });
+      releaseOnExit = false;
+      void work.catch(() => undefined).finally(() => scansInFlight.delete(repoId));
 
-      const proposed = result.data.candidates.slice(0, MAX_CANDIDATES);
+      const result = await withDeadline(work, SCAN_TIMEOUT_MS);
+
+      const returned = result.data.candidates;
+      const proposed = returned.slice(0, MAX_CANDIDATES);
       const verified = verifyAgainstSample(sample, proposed);
 
       const recorded = await this.deps.repo.recordScan(
@@ -144,7 +152,7 @@ export class ConventionsService {
           repoId,
           sampleFileCount: sample.configFiles.length + sample.sourceFiles.length,
           indexed: sample.indexed,
-          discardedCount: proposed.length - verified.length,
+          discardedCount: returned.length - verified.length,
           sourceSha: sample.sourceSha,
           provider,
           model: result.model,
@@ -160,7 +168,7 @@ export class ConventionsService {
         candidates: recorded.candidates.map(toCandidateDto),
       };
     } finally {
-      scansInFlight.delete(repoId);
+      if (releaseOnExit) scansInFlight.delete(repoId);
     }
   }
 
@@ -224,7 +232,7 @@ export class ConventionsService {
       return await this.deps.samples.sample(repo);
     } catch (err) {
       if (err instanceof Error && err.message === 'CLONE_MISSING') {
-        throw new ValidationError(
+        throw new ConflictError(
           'This repository has no local working copy yet — refresh it before scanning for conventions',
           { repo_id: repo.id },
         );
@@ -236,8 +244,9 @@ export class ConventionsService {
   private async requireAccepted(
     workspaceId: string,
     repoId: string,
-    ids: string[],
+    requested: string[],
   ): Promise<ConventionRow[]> {
+    const ids = [...new Set(requested)];
     const rows = await this.deps.repo.getByIds(workspaceId, repoId, ids);
     if (rows.length !== ids.length) {
       const found = new Set(rows.map((r) => r.id));
