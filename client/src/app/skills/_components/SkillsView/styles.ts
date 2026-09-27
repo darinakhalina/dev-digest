@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 export const s = {
   split: { display: "flex", height: "calc(100vh - 52px)" } satisfies CSSProperties,
   rail: {
-    width: 300,
+    width: 400,
     flexShrink: 0,
     borderRight: "1px solid var(--border)",
     display: "flex",
