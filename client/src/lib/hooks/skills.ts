@@ -107,6 +107,23 @@ export function useSetAgentSkills() {
   });
 }
 
+export function useImportSkillFromUrl() {
+  return useMutation({
+    mutationFn: (url: string) => api.post<SkillImportPreview>("/skills/import-url", { url }),
+  });
+}
+
+export function useAcceptSkillRisk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<Skill>(`/skills/${id}/accept-risk`, { accepted: true }),
+    onSuccess: (data) => {
+      qc.setQueryData(["skill", data.id], data);
+      qc.invalidateQueries({ queryKey: ["skills"] });
+    },
+  });
+}
+
 export function useSkillVersions(id: string | null | undefined) {
   return useQuery({
     queryKey: ["skill-versions", id],

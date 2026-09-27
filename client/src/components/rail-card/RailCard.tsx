@@ -18,6 +18,8 @@ export interface RailCardProps {
   deleteLabel: string;
   badges?: React.ReactNode;
   footer?: React.ReactNode;
+  accent?: string;
+  toggleDisabled?: boolean;
 }
 
 export function RailCard({
@@ -34,6 +36,8 @@ export function RailCard({
   deleteLabel,
   badges,
   footer,
+  accent,
+  toggleDisabled,
 }: RailCardProps) {
   const I = Icon[icon];
 
@@ -50,7 +54,7 @@ export function RailCard({
           onSelect();
         }
       }}
-      style={s.card(active, enabled)}
+      style={s.card(active, enabled, accent)}
     >
       <div style={s.headerRow}>
         <span style={s.iconBox}>
@@ -60,8 +64,16 @@ export function RailCard({
           {name}
         </span>
         {onToggle && (
-          <div onClick={(e) => e.stopPropagation()}>
-            <Toggle on={enabled} onChange={onToggle} size={16} label={toggleLabel} />
+          <div onClick={(e) => e.stopPropagation()} style={toggleDisabled ? s.toggleOff : undefined}>
+            <Toggle
+              on={enabled}
+              onChange={(next) => {
+                if (toggleDisabled) return;
+                onToggle(next);
+              }}
+              size={16}
+              label={toggleLabel}
+            />
           </div>
         )}
       </div>

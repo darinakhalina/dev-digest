@@ -1,9 +1,15 @@
 import { strFromU8, unzipSync, type UnzipFileInfo } from 'fflate';
-import type { SkillImportPreview } from '@devdigest/shared';
+import type {
+  ImportSignal,
+  ImportSignalRule,
+  SkillImportPreview,
+  SkillThreatLevel,
+} from '@devdigest/shared';
 import { ValidationError } from '../../platform/errors.js';
 import {
   ACCEPTED_IMPORT_EXTENSIONS,
   DEFAULT_SKILL_TYPE,
+  IMPORT_URL_ALLOWED_HOSTS,
   IMPORTED_SKILL_SOURCE,
   MAX_ARCHIVE_ENTRIES,
   MAX_EXPANDED_BYTES,
@@ -117,6 +123,7 @@ function toPreview(name: string, body: string, ignoredFiles: string[]): SkillImp
   if (body.trim().length === 0) {
     throw new ValidationError('The imported skill body is empty');
   }
+  const scan = scanSkillBody(body);
   return {
     name: name.trim().length > 0 ? name.trim() : 'Imported skill',
     description: '',
@@ -124,11 +131,20 @@ function toPreview(name: string, body: string, ignoredFiles: string[]): SkillImp
     source: IMPORTED_SKILL_SOURCE,
     body,
     ignored_files: ignoredFiles,
+    signals: scan.signals,
+    threat_level: scan.level,
   };
 }
 
 function markdownTitle(text: string): string | undefined {
-  return /^#\s+(.+)$/m.exec(text)?.[1]?.trim();
+  const heading = /^#\s+(.+)$/m.exec(text)?.[1];
+  if (heading === undefined) return undefined;
+  const plain = heading
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[*_`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return plain.length > 0 ? plain.slice(0, 64) : undefined;
 }
 
 function filenameStem(filename: string): string {
@@ -140,4 +156,192 @@ function filenameStem(filename: string): string {
 function hasExtension(filename: string, extensions: string[]): boolean {
   const lower = filename.toLowerCase();
   return extensions.some((ext) => lower.endsWith(ext));
+}
+
+export type ImportUrlRefusal =
+  | 'not_a_url'
+  | 'scheme_not_https'
+  | 'host_not_allowed'
+  | 'credentials_in_url'
+  | 'no_document_path';
+
+export interface AllowedImportUrl {
+  url: string;
+  filename: string;
+}
+
+export function refusalMessage(reason: ImportUrlRefusal): string {
+  switch (reason) {
+    case 'not_a_url':
+      return 'That is not a URL.';
+    case 'scheme_not_https':
+      return 'Only https:// addresses can be imported.';
+    case 'credentials_in_url':
+      return 'A URL carrying a username or password cannot be imported.';
+    case 'no_document_path':
+      return 'The URL must point at a Markdown document.';
+    case 'host_not_allowed':
+      return `Only these hosts can be imported from: ${IMPORT_URL_ALLOWED_HOSTS.join(', ')}.`;
+  }
+}
+
+export function isAllowedImportHost(hostname: string): boolean {
+  return (IMPORT_URL_ALLOWED_HOSTS as readonly string[]).includes(hostname.toLowerCase());
+}
+
+export function resolveImportUrl(
+  raw: string,
+): { ok: true; value: AllowedImportUrl } | { ok: false; reason: ImportUrlRefusal } {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw.trim());
+  } catch {
+    return { ok: false, reason: 'not_a_url' };
+  }
+
+  if (parsed.protocol !== 'https:') return { ok: false, reason: 'scheme_not_https' };
+  if (parsed.username || parsed.password) return { ok: false, reason: 'credentials_in_url' };
+  if (!isAllowedImportHost(parsed.hostname)) return { ok: false, reason: 'host_not_allowed' };
+
+  const raws = toRawGithubUrl(parsed);
+  const filename = documentFilename(raws.pathname);
+  if (!filename) return { ok: false, reason: 'no_document_path' };
+
+  raws.hash = '';
+  raws.search = '';
+  return { ok: true, value: { url: raws.toString(), filename } };
+}
+
+function toRawGithubUrl(url: URL): URL {
+  if (url.hostname.toLowerCase() !== 'github.com') return new URL(url.toString());
+  const segments = url.pathname.split('/').filter(Boolean);
+  const blob = segments.indexOf('blob');
+  if (blob !== 2 || segments.length < 5) return new URL(url.toString());
+  const [owner, repo] = segments;
+  const rest = segments.slice(blob + 1).join('/');
+  return new URL(`https://raw.githubusercontent.com/${owner}/${repo}/${rest}`);
+}
+
+function documentFilename(pathname: string): string | null {
+  const last = pathname.split('/').filter(Boolean).pop();
+  if (!last) return null;
+  const decoded = safeDecode(last);
+  return hasExtension(decoded, ['.md', '.markdown']) ? decoded : null;
+}
+
+function safeDecode(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+const DANGEROUS_PATTERNS: ReadonlyArray<{ rule: ImportSignalRule; pattern: RegExp }> = [
+  {
+    rule: 'instruction_override',
+    pattern: /\b(ignore|disregard|forget|override)\b[^.\n]{0,40}\b(previous|prior|earlier|above|all|any)\b[^.\n]{0,40}\b(instruction|prompt|rule|direction|guideline|safety|restriction)/i,
+  },
+  {
+    rule: 'instruction_override',
+    pattern: /\boverride\s+(all\s+)?(safety|guidelines?|restrictions?|rules?)/i,
+  },
+  {
+    rule: 'role_hijack',
+    pattern: /\byou\s+are\s+now\b[^.\n]{0,40}\b(unrestricted|jailbroken|uncensored|free|helpful assistant)/i,
+  },
+  {
+    rule: 'role_hijack',
+    pattern: /\bact\s+as\s+(an?\s+)?(unrestricted|jailbroken|uncensored)/i,
+  },
+  { rule: 'role_hijack', pattern: /^\s{0,3}(system|assistant|developer)\s*:\s*\S/im },
+  {
+    rule: 'verdict_rigging',
+    pattern: /\balways\s+(give|return|output|set)\b[^.\n]{0,30}\bscore\b[^.\n]{0,10}\b100\b/i,
+  },
+  {
+    rule: 'verdict_rigging',
+    pattern: /\b(always|never)\s+(approve|accept|pass|reject)\b[^.\n]{0,30}\b(prs?|pull\s+requests?|everything|all)\b/i,
+  },
+  {
+    rule: 'finding_suppression',
+    pattern: /\b(never|do\s+not|don't)\s+(flag|report|mention|identify|surface)\b[^.\n]{0,30}\b(security|vulnerabilit|issue|finding)/i,
+  },
+  { rule: 'delimiter_escape', pattern: /<\s*\/?\s*untrusted\b/i },
+];
+
+const SUSPICIOUS_PATTERNS: ReadonlyArray<{ rule: ImportSignalRule; pattern: RegExp }> = [
+  { rule: 'role_hijack', pattern: /\b(from now on you|your new role is|new instructions\s*:)/i },
+  { rule: 'role_hijack', pattern: /\[INST\]|\[SYS\]|<\|system\|>|<\|user\|>|<\|im_start\|>/i },
+  {
+    rule: 'secret_request',
+    pattern: /\b(api[ _-]?keys?|access[ _-]?tokens?|process\.env|\.env\b|secrets?\.json|private[ _-]?keys?)\b/i,
+  },
+  {
+    rule: 'exfiltration',
+    pattern: /\b(curl|wget|fetch|send (?:it|them|this|the \w+) to)\b[^\n]{0,60}https?:\/\//i,
+  },
+  { rule: 'shell_block', pattern: /^\s*```\s*(bash|sh|zsh|shell|powershell|cmd)\b/im },
+  { rule: 'hidden_characters', pattern: /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/ },
+];
+
+const MAX_SIGNALS = 20;
+const EXCERPT_CHARS = 160;
+
+export interface SkillBodyScan {
+  level: SkillThreatLevel;
+  signals: ImportSignal[];
+}
+
+export function scanSkillBody(body: string): SkillBodyScan {
+  const dangerous = matchesIn(body, DANGEROUS_PATTERNS);
+  if (dangerous.length > 0) return { level: 'dangerous', signals: dangerous };
+
+  const suspicious = matchesIn(body, SUSPICIOUS_PATTERNS);
+  if (suspicious.length > 0) return { level: 'suspicious', signals: suspicious };
+
+  return { level: 'safe', signals: [] };
+}
+
+function matchesIn(
+  body: string,
+  patterns: ReadonlyArray<{ rule: ImportSignalRule; pattern: RegExp }>,
+): ImportSignal[] {
+  const lines = body.split(/\r?\n/);
+  const signals: ImportSignal[] = [];
+  const seen = new Set<string>();
+
+  for (const [index, line] of lines.entries()) {
+    for (const { rule, pattern } of patterns) {
+      if (signals.length >= MAX_SIGNALS) return signals;
+      if (seen.has(`${rule}:${index}`)) continue;
+      if (!pattern.test(line)) continue;
+      seen.add(`${rule}:${index}`);
+      signals.push({ rule, line: index + 1, excerpt: excerptOf(line) });
+    }
+  }
+
+  return signals;
+}
+
+function excerptOf(line: string): string {
+  const visible = line.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g, '\uFFFD').trim();
+  return visible.length > EXCERPT_CHARS ? `${visible.slice(0, EXCERPT_CHARS)}\u2026` : visible;
+}
+
+export interface ThreatState {
+  level: SkillThreatLevel;
+  acceptedAt: Date | null;
+}
+
+export function isRiskAccepted(state: ThreatState): boolean {
+  return state.acceptedAt !== null;
+}
+
+export function needsRiskAcceptance(state: ThreatState): boolean {
+  return state.level === 'dangerous';
+}
+
+export function isBlockedFromModel(state: ThreatState): boolean {
+  return needsRiskAcceptance(state) && !isRiskAccepted(state);
 }

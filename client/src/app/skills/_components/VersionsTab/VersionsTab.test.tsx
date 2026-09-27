@@ -28,6 +28,8 @@ const skill = (over: Partial<Skill> = {}): Skill => ({
   version: 2,
   evidence_files: null,
   agent_count: 1,
+  threat_level: "safe",
+  threat_signals: [],
   ...over,
 });
 

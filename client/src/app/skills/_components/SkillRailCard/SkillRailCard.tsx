@@ -6,6 +6,8 @@ import { Badge } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { RailCard } from "@/components/rail-card";
 import { skillTypeColor } from "@/lib/skill-type";
+import { THREAT_COLOR, resolveSkillThreat } from "@/lib/skill-threat";
+import { ThreatBadge } from "../ThreatBanner";
 
 export interface SkillRailCardProps {
   skill: Skill;
@@ -25,6 +27,7 @@ export function SkillRailCard({
   const t = useTranslations("skills");
   const untrusted = skill.source !== "manual";
   const type = skillTypeColor(skill.type);
+  const threat = resolveSkillThreat(skill);
 
   return (
     <RailCard
@@ -39,12 +42,15 @@ export function SkillRailCard({
       toggleLabel={t("listItem.toggleLabel", { name: skill.name })}
       onDelete={onDelete}
       deleteLabel={t("remove.label", { name: skill.name })}
+      accent={threat.isBlocked ? THREAT_COLOR.danger.border : undefined}
+      toggleDisabled={threat.isBlocked}
       badges={
         <>
           <Badge color={type.fg} bg={type.bg} mono>
             {t(`listItem.type.${skill.type}`)}
           </Badge>
           <Badge color="var(--text-muted)">{t(`listItem.source.${skill.source}`)}</Badge>
+          <ThreatBadge skill={skill} />
           {untrusted && (
             <span title={t("listItem.vettingTitle")}>
               <Badge color="var(--warn)" bg="var(--warn-bg)" icon="AlertTriangle">
@@ -54,7 +60,11 @@ export function SkillRailCard({
           )}
         </>
       }
-      footer={t("listItem.agents", { count: skill.agent_count ?? 0 })}
+      footer={
+        threat.isBlocked
+          ? t("threat.blockedNote")
+          : t("listItem.agents", { count: skill.agent_count ?? 0 })
+      }
     />
   );
 }

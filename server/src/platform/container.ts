@@ -39,6 +39,8 @@ import type { PullsSync } from '../modules/pulls/types.js';
 import { PullsService } from '../modules/pulls/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import type { DocumentFetcher } from '@devdigest/shared/adapters';
+import { HttpDocumentFetcher } from '../adapters/http/document-fetcher.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -60,6 +62,7 @@ export interface ContainerOverrides {
   repoIntel?: RepoIntel;
   repos?: RepoAccess;
   skills?: SkillAuthoring;
+  documentFetcher?: DocumentFetcher;
   pulls?: PullsSync;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
@@ -86,6 +89,7 @@ export class Container {
   private _agentsRepo?: AgentsRepository;
   private _reviewRepo?: ReviewRepository;
   private _skillsRepo?: SkillsRepository;
+  private _documentFetcher?: DocumentFetcher;
   private _skills?: SkillAuthoring;
   private _conventionsRepo?: ConventionsRepository;
   private _repoIntel?: RepoIntel;
@@ -120,6 +124,11 @@ export class Container {
 
   get skillsRepo(): SkillsRepository {
     return (this._skillsRepo ??= new SkillsRepository(this.db));
+  }
+
+  get documentFetcher(): DocumentFetcher {
+    if (this.overrides.documentFetcher) return this.overrides.documentFetcher;
+    return (this._documentFetcher ??= new HttpDocumentFetcher());
   }
 
   get skills(): SkillAuthoring {

@@ -6,9 +6,9 @@ import skillMessages from "../../../../../../../messages/en/skills.json";
 import agentMessages from "../../../../../../../messages/en/agents.json";
 
 const SKILLS: Skill[] = [
-  { id: "sk1", name: "Severity Rubric", description: "", type: "rubric", source: "manual", body: "a", enabled: true, version: 1 },
-  { id: "sk2", name: "House Conventions", description: "", type: "convention", source: "manual", body: "b", enabled: true, version: 1 },
-  { id: "sk3", name: "Imported Test Rules", description: "", type: "custom", source: "imported_url", body: "c", enabled: false, version: 1 },
+  { id: "sk1", name: "Severity Rubric", description: "", type: "rubric", source: "manual", body: "a", enabled: true, version: 1, threat_level: "safe", threat_signals: [] },
+  { id: "sk2", name: "House Conventions", description: "", type: "convention", source: "manual", body: "b", enabled: true, version: 1, threat_level: "safe", threat_signals: [] },
+  { id: "sk3", name: "Imported Test Rules", description: "", type: "custom", source: "imported_url", body: "c", enabled: false, version: 1, threat_level: "safe", threat_signals: [] },
 ];
 
 const LINKS: AgentSkillLink[] = [

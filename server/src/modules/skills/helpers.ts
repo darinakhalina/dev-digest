@@ -22,5 +22,8 @@ export function toSkillDto(row: SkillRow, agentCount = 0): Skill {
     version: row.version,
     evidence_files: row.evidenceFiles ?? null,
     agent_count: agentCount,
+    threat_level: row.threatLevel,
+    threat_signals: row.threatSignals ?? [],
+    threat_accepted_at: row.threatAcceptedAt?.toISOString() ?? null,
   };
 }

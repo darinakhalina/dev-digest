@@ -1,14 +1,14 @@
 import type { CSSProperties } from "react";
 
 export const s = {
-  card: (active: boolean, enabled: boolean): CSSProperties => ({
+  card: (active: boolean, enabled: boolean, accent?: string): CSSProperties => ({
     padding: 14,
     borderRadius: 8,
     cursor: "pointer",
     textAlign: "left",
     width: "100%",
     display: "block",
-    border: `1px solid ${active ? "var(--border-strong)" : "var(--border)"}`,
+    border: `1px solid ${accent ?? (active ? "var(--border-strong)" : "var(--border)")}`,
     background: active ? "var(--bg-hover)" : "var(--bg-elevated)",
     opacity: enabled ? 1 : 0.62,
     marginBottom: 10,
@@ -57,4 +57,5 @@ export const s = {
     color: "var(--text-muted)",
   } satisfies CSSProperties,
   footerText: { flex: 1, minWidth: 0 } satisfies CSSProperties,
+  toggleOff: { opacity: 0.4, cursor: "not-allowed" } satisfies CSSProperties,
 } as const;

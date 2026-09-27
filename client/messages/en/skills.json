@@ -68,12 +68,15 @@
     "confirm": "Confirm import"
   },
   "url": {
-    "label": "Skill URL",
-    "hint": "Fetched server-side, stored as untrusted, and left disabled until vetted.",
-    "placeholder": "https://example.com/skills/security.md",
+    "label": "URL (https:// only)",
+    "placeholder": "https://raw.githubusercontent.com/org/repo/main/skill.md",
+    "hint": "Only GitHub raw and gist addresses are fetched, over https, with redirects checked at every hop.",
+    "fetch": "Fetch",
     "fetching": "Fetching…",
-    "import": "Import from URL",
-    "success": "Imported \"{name}\". Disabled until you vet + enable it."
+    "confirm": "Import from URL",
+    "importing": "Importing…",
+    "success": "Imported “{name}” from URL. It is disabled until you vet it.",
+    "failed": "Could not import from that address."
   },
   "community": {
     "searchPlaceholder": "Search community skills (e.g. security)…",
@@ -194,5 +197,42 @@
     "confirm": "Delete",
     "deleting": "Deleting…",
     "deletedToast": "Deleted \"{name}\"."
+  },
+  "add": {
+    "title": "Add skill",
+    "tabs": {
+      "create": "Create",
+      "file": "From file",
+      "url": "Import from URL"
+    }
+  },
+  "threat": {
+    "bannerTitle": "INJECTION DETECTED — DO NOT ENABLE",
+    "bannerBody": "This skill contains prompt-injection patterns. It cannot be enabled, attached to an agent, or sent to any model until you edit it or accept the risk below.",
+    "bannerAcceptedTitle": "ACCEPTED — POTENTIALLY UNSAFE",
+    "bannerAcceptedBody": "Someone accepted the risk on this skill, so it may be used. Its instructions still reach the model as untrusted text.",
+    "badgeDangerous": "Injection detected",
+    "badgeAccepted": "Accepted — unsafe",
+    "badgeSuspicious": "Suspicious",
+    "blockedNote": "blocked — injection detected",
+    "acceptLabel": "I have read the body and accept that this skill is dangerous and unsafe. Let agents use it anyway.",
+    "acceptButton": "Accept the risk",
+    "accepting": "Accepting…",
+    "acceptedToast": "Risk accepted for “{name}”. It stays marked as unsafe.",
+    "acceptedOn": "Risk accepted {date}.",
+    "attachBlocked": "Flagged for prompt injection — cannot be attached",
+    "signalsTitle": "{count, plural, one {# flagged line} other {# flagged lines}}",
+    "signalsHint": "Pattern matching is not proof. Read the body itself before deciding.",
+    "rule": {
+      "instruction_override": "Tries to override earlier instructions",
+      "role_hijack": "Tries to change the reviewer's role",
+      "verdict_rigging": "Tries to force a verdict or score",
+      "finding_suppression": "Tries to suppress findings",
+      "delimiter_escape": "Tries to break out of the untrusted block",
+      "secret_request": "Asks for secrets or environment values",
+      "exfiltration": "Points data at an outside address",
+      "shell_block": "Carries a shell command block",
+      "hidden_characters": "Contains invisible characters"
+    }
   }
 }

@@ -42,6 +42,8 @@ describe('parseSkillImport — markdown (AC-16)', () => {
       source: 'imported_url',
       body: '# Severity Rubric\n\nBlock on data loss.\n',
       ignored_files: [],
+      signals: [],
+      threat_level: 'safe',
     });
   });
 

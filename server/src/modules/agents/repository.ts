@@ -4,6 +4,7 @@ import * as t from '../../db/schema.js';
 import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
 import { DEFAULT_AGENT_DESCRIPTION, INITIAL_AGENT_VERSION } from './constants.js';
 import { isConfigChange } from './helpers.js';
+import { isBlockedFromModel } from '../skills/domain.js';
 
 /**
  * A2 — agents data-access. Owns `agents`, `agent_versions`, and the
@@ -234,16 +235,27 @@ export class AgentsRepository {
    */
   async promptSkills(agentId: string): Promise<PromptSkillRow[]> {
     const rows = await this.db
-      .select({ body: t.skills.body, source: t.skills.source, order: t.agentSkills.order })
+      .select({
+        body: t.skills.body,
+        source: t.skills.source,
+        order: t.agentSkills.order,
+        threatLevel: t.skills.threatLevel,
+        threatAcceptedAt: t.skills.threatAcceptedAt,
+      })
       .from(t.agentSkills)
       .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
       .where(and(eq(t.agentSkills.agentId, agentId), eq(t.skills.enabled, true)))
       .orderBy(asc(t.agentSkills.order));
-    return rows.map((r) => ({
-      body: r.body,
-      trusted: isTrustedSource(r.source),
-      order: r.order,
-    }));
+    return rows
+      .filter(
+        (r) =>
+          !isBlockedFromModel({ level: r.threatLevel, acceptedAt: r.threatAcceptedAt }),
+      )
+      .map((r) => ({
+        body: r.body,
+        trusted: isTrustedSource(r.source),
+        order: r.order,
+      }));
   }
 
   async skillIdsForAgent(agentId: string): Promise<string[]> {
@@ -273,6 +285,21 @@ export class AgentsRepository {
    * order = index. Used by the "Skills" editor tab (attach/reorder). Skills not in
    * the list are unlinked.
    */
+  async blockedSkillNames(workspaceId: string, skillIds: string[]): Promise<string[]> {
+    if (skillIds.length === 0) return [];
+    const rows = await this.db
+      .select({
+        name: t.skills.name,
+        threatLevel: t.skills.threatLevel,
+        threatAcceptedAt: t.skills.threatAcceptedAt,
+      })
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), inArray(t.skills.id, skillIds)));
+    return rows
+      .filter((r) => isBlockedFromModel({ level: r.threatLevel, acceptedAt: r.threatAcceptedAt }))
+      .map((r) => r.name);
+  }
+
   async setSkills(agentId: string, skillIds: string[]): Promise<void> {
     // Delete + reinsert in ONE transaction (SPEC AC-7): a failure between the
     // two must leave the previous set intact, never an agent with no skills.

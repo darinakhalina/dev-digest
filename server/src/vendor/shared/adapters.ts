@@ -287,3 +287,21 @@ export interface SecretsProvider {
    */
   set?(key: SecretKey, value: string): Promise<void>;
 }
+
+// ---------- Document fetch (URL import; SSRF-constrained) ----------
+export interface DocumentFetchLimits {
+  allowHost(hostname: string): boolean;
+  maxBytes: number;
+  maxRedirects: number;
+  timeoutMs: number;
+}
+
+export interface FetchedDocument {
+  finalUrl: string;
+  contentType: string | null;
+  text: string;
+}
+
+export interface DocumentFetcher {
+  fetch(url: string, limits: DocumentFetchLimits): Promise<FetchedDocument>;
+}

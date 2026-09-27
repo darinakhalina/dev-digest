@@ -25,6 +25,10 @@ export interface UpdateSkillInput {
   enabled?: boolean;
 }
 
+export interface ImportUrlInput {
+  url: string;
+}
+
 export interface SkillAuthoring {
   list(workspaceId: string): Promise<Skill[]>;
   get(workspaceId: string, id: string): Promise<Skill | undefined>;
@@ -38,4 +42,6 @@ export interface SkillAuthoring {
   versions(workspaceId: string, id: string): Promise<SkillVersion[] | undefined>;
   restore(workspaceId: string, id: string, version: number): Promise<Skill | undefined>;
   importPreview(filename: string, contentBase64: string): SkillImportPreview;
+  importUrlPreview(url: string): Promise<SkillImportPreview>;
+  acceptRisk(workspaceId: string, id: string, userId: string): Promise<Skill | undefined>;
 }

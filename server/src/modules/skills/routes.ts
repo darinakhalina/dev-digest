@@ -34,6 +34,14 @@ const ImportSkillBody = z.object({
   content_base64: z.string().min(1),
 });
 
+const ImportSkillUrlBody = z.object({
+  url: z.string().min(1).max(2048),
+});
+
+const AcceptRiskBody = z.object({
+  accepted: z.literal(true),
+});
+
 /**
  * GET    /skills          list (workspace-scoped)
  * POST   /skills          create
@@ -62,6 +70,22 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     await getContext(app.container, req);
     return service.importPreview(req.body.filename, req.body.content_base64);
   });
+
+  app.post('/skills/import-url', { schema: { body: ImportSkillUrlBody } }, async (req) => {
+    await getContext(app.container, req);
+    return service.importUrlPreview(req.body.url);
+  });
+
+  app.post(
+    '/skills/:id/accept-risk',
+    { schema: { params: IdParams, body: AcceptRiskBody } },
+    async (req) => {
+      const { workspaceId, userId } = await getContext(app.container, req);
+      const skill = await service.acceptRisk(workspaceId, req.params.id, userId);
+      if (!skill) throw new NotFoundError('Skill not found');
+      return skill;
+    },
+  );
 
   app.get('/skills/:id', { schema: { params: IdParams } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);

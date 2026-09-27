@@ -1,11 +1,24 @@
-import type { Skill, SkillImportPreview, SkillVersion } from '@devdigest/shared';
+import type { Skill, SkillImportPreview, SkillThreatLevel, SkillVersion } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import type { SkillsRepository } from './repository.js';
 import { toSkillDto, toSkillVersionDto } from './helpers.js';
-import { parseSkillImport } from './domain.js';
-import { DEFAULT_SKILL_SOURCE, DEFAULT_SKILL_TYPE, MAX_IMPORT_BYTES } from './constants.js';
+import {
+  isBlockedFromModel,
+  parseSkillImport,
+  refusalMessage,
+  resolveImportUrl,
+} from './domain.js';
+import {
+  DEFAULT_SKILL_SOURCE,
+  DEFAULT_SKILL_TYPE,
+  IMPORT_URL_MAX_BYTES,
+  IMPORT_URL_MAX_REDIRECTS,
+  IMPORT_URL_TIMEOUT_MS,
+  MAX_IMPORT_BYTES,
+} from './constants.js';
 import { ValidationError } from '../../platform/errors.js';
 import type { CreateSkillInput, SkillAuthoring, UpdateSkillInput } from './types.js';
+import { isAllowedImportHost } from './domain.js';
 
 export type { CreateSkillInput, UpdateSkillInput } from './types.js';
 
@@ -13,7 +26,7 @@ export type { CreateSkillInput, UpdateSkillInput } from './types.js';
 export class SkillsService implements SkillAuthoring {
   private repo: SkillsRepository;
 
-  constructor(container: Container) {
+  constructor(private container: Container) {
     this.repo = container.skillsRepo;
   }
 
@@ -56,8 +69,39 @@ export class SkillsService implements SkillAuthoring {
     id: string,
     patch: UpdateSkillInput,
   ): Promise<Skill | undefined> {
+    if (patch.enabled === true && patch.body === undefined) {
+      const existing = await this.repo.getById(workspaceId, id);
+      if (!existing) return undefined;
+      assertUsable(existing);
+    }
     const row = await this.repo.update(workspaceId, id, patch);
     return row ? toSkillDto(row) : undefined;
+  }
+
+  async acceptRisk(workspaceId: string, id: string, userId: string): Promise<Skill | undefined> {
+    const row = await this.repo.acceptThreat(workspaceId, id, userId);
+    if (!row) return undefined;
+    const counts = await this.repo.agentCounts(workspaceId, [row.id]);
+    return toSkillDto(row, counts.get(row.id) ?? 0);
+  }
+
+  async importUrlPreview(url: string): Promise<SkillImportPreview> {
+    const resolved = resolveImportUrl(url);
+    if (!resolved.ok) {
+      throw new ValidationError(refusalMessage(resolved.reason), {
+        field: 'url',
+        rule: resolved.reason,
+      });
+    }
+
+    const document = await this.container.documentFetcher.fetch(resolved.value.url, {
+      allowHost: isAllowedImportHost,
+      maxBytes: IMPORT_URL_MAX_BYTES,
+      maxRedirects: IMPORT_URL_MAX_REDIRECTS,
+      timeoutMs: IMPORT_URL_TIMEOUT_MS,
+    });
+
+    return parseSkillImport(resolved.value.filename, new TextEncoder().encode(document.text));
   }
 
   async restore(workspaceId: string, id: string, version: number): Promise<Skill | undefined> {
@@ -85,6 +129,14 @@ export class SkillsService implements SkillAuthoring {
   importPreview(filename: string, contentBase64: string): SkillImportPreview {
     return parseSkillImport(filename, decodeBase64(contentBase64));
   }
+}
+
+function assertUsable(row: { threatLevel: SkillThreatLevel; threatAcceptedAt: Date | null }): void {
+  if (!isBlockedFromModel({ level: row.threatLevel, acceptedAt: row.threatAcceptedAt })) return;
+  throw new ValidationError(
+    'This skill contains prompt-injection patterns. Edit the body, or accept the risk explicitly, before using it.',
+    { rule: 'threat_not_accepted', threat_level: row.threatLevel },
+  );
 }
 
 function decodeBase64(contentBase64: string): Uint8Array {

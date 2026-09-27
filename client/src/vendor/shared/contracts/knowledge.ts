@@ -118,6 +118,29 @@ export type SkillType = z.infer<typeof SkillType>;
 export const SkillSource = z.enum(['manual', 'imported_url', 'extracted', 'community']);
 export type SkillSource = z.infer<typeof SkillSource>;
 
+export const SkillThreatLevel = z.enum(['unknown', 'safe', 'suspicious', 'dangerous']);
+export type SkillThreatLevel = z.infer<typeof SkillThreatLevel>;
+
+export const ImportSignalRule = z.enum([
+  'instruction_override',
+  'role_hijack',
+  'verdict_rigging',
+  'finding_suppression',
+  'delimiter_escape',
+  'secret_request',
+  'exfiltration',
+  'shell_block',
+  'hidden_characters',
+]);
+export type ImportSignalRule = z.infer<typeof ImportSignalRule>;
+
+export const ImportSignal = z.object({
+  rule: ImportSignalRule,
+  line: z.number().int().positive(),
+  excerpt: z.string(),
+});
+export type ImportSignal = z.infer<typeof ImportSignal>;
+
 export const Skill = z.object({
   id: z.string(),
   name: z.string(),
@@ -129,6 +152,9 @@ export const Skill = z.object({
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
   agent_count: z.number().int().nullish(),
+  threat_level: SkillThreatLevel.default('unknown'),
+  threat_signals: z.array(ImportSignal).default([]),
+  threat_accepted_at: z.string().nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
 
@@ -204,6 +230,8 @@ export const SkillImportPreview = z.object({
   source: SkillSource,
   body: z.string(),
   ignored_files: z.array(z.string()),
+  signals: z.array(ImportSignal).default([]),
+  threat_level: SkillThreatLevel.default('unknown'),
 });
 export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
 

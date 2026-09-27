@@ -15,3 +15,16 @@ export const DEFAULT_SKILL_TYPE: SkillType = 'custom';
 export const DEFAULT_SKILL_SOURCE: SkillSource = 'manual';
 
 export const IMPORTED_SKILL_SOURCE: SkillSource = 'imported_url';
+
+export const IMPORT_URL_ALLOWED_HOSTS = [
+  'raw.githubusercontent.com',
+  'gist.githubusercontent.com',
+  'github.com',
+  'gist.github.com',
+] as const;
+
+export const IMPORT_URL_MAX_REDIRECTS = 3;
+
+export const IMPORT_URL_MAX_BYTES = 1 * 1024 * 1024;
+
+export const IMPORT_URL_TIMEOUT_MS = 10_000;

@@ -53,5 +53,16 @@ export const s = {
     textOverflow: "ellipsis",
   } satisfies CSSProperties,
   disabledNote: { fontSize: 11, color: "var(--warn)" } satisfies CSSProperties,
+  blockedRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 10px",
+    borderRadius: 6,
+    marginBottom: 6,
+    border: "1px solid var(--crit)",
+    background: "var(--crit-bg)",
+  } satisfies CSSProperties,
+  blockedNote: { fontSize: 11, color: "var(--crit)", whiteSpace: "nowrap" } satisfies CSSProperties,
   empty: { fontSize: 13, color: "var(--text-muted)", padding: "8px 2px" } satisfies CSSProperties,
 } as const;

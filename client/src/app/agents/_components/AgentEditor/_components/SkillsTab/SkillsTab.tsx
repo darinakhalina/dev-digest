@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Badge, IconBtn, Skeleton } from "@devdigest/ui";
 import { useAgentSkills, useSetAgentSkills, useSkills } from "@/lib/hooks/skills";
 import { skillTypeColor } from "@/lib/skill-type";
+import { THREAT_COLOR, resolveSkillThreat } from "@/lib/skill-threat";
 import { filterByName, moveSkill, toOrderedSkillIds } from "./helpers";
 import { s } from "./styles";
 
@@ -103,10 +104,17 @@ export function SkillsTab({ agentId }: { agentId: string }) {
       <div style={s.sectionLabel}>{t("agentTab.available")}</div>
       {available.length === 0 && <p style={s.empty}>{t("agentTab.noneAvailable")}</p>}
       <ul style={s.list} aria-label={t("agentTab.available")}>
-        {available.map((skill) => (
-          <li key={skill.id} style={s.row}>
+        {available.map((skill) => {
+          const threat = resolveSkillThreat(skill);
+          return (
+          <li key={skill.id} style={threat.isBlocked ? s.blockedRow : s.row}>
             <span style={s.position} />
             <span style={s.name}>{skill.name}</span>
+            {threat.isBlocked && (
+              <Badge color={THREAT_COLOR.danger.fg} bg={THREAT_COLOR.danger.bg} icon="AlertTriangle">
+                {t("threat.badgeDangerous")}
+              </Badge>
+            )}
             <Badge
               color={skillTypeColor(skill.type).fg}
               bg={skillTypeColor(skill.type).bg}
@@ -114,14 +122,21 @@ export function SkillsTab({ agentId }: { agentId: string }) {
             >
               {t(`listItem.type.${skill.type}`)}
             </Badge>
-            <IconBtn
-              icon="Plus"
-              size={26}
-              label={t("agentTab.attach", { name: skill.name })}
-              onClick={() => apply([...attachedIds, skill.id])}
-            />
+            {threat.isBlocked ? (
+              <span title={t("threat.attachBlocked")} style={s.blockedNote}>
+                {t("threat.attachBlocked")}
+              </span>
+            ) : (
+              <IconBtn
+                icon="Plus"
+                size={26}
+                label={t("agentTab.attach", { name: skill.name })}
+                onClick={() => apply([...attachedIds, skill.id])}
+              />
+            )}
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );

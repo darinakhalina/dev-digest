@@ -14,11 +14,12 @@ import {
   RailListSkeleton,
 } from "@/components/rail-layout";
 import { useSkills, useUpdateSkill } from "@/lib/hooks/skills";
-import { CreateSkillModal } from "../CreateSkillModal";
+import { AddSkillModal } from "../AddSkillModal";
 import { DeleteSkillModal } from "../DeleteSkillModal";
-import { ImportDrawer } from "../ImportDrawer";
 import { SkillRailCard } from "../SkillRailCard";
 import { SkillEditor } from "../SkillEditor";
+import { ThreatBadge, ThreatBanner } from "../ThreatBanner";
+import type { AddTab } from "../AddSkillModal/constants";
 import { DEFAULT_TAB, VALID_TABS } from "./constants";
 import { filterSkills } from "./helpers";
 
@@ -30,8 +31,7 @@ export function SkillsView({ selectedId }: { selectedId?: string }) {
   const { data: skills, isLoading, isError, refetch } = useSkills();
   const update = useUpdateSkill();
 
-  const [importOpen, setImportOpen] = React.useState(false);
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [addTab, setAddTab] = React.useState<AddTab | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
 
@@ -56,13 +56,12 @@ export function SkillsView({ selectedId }: { selectedId?: string }) {
 
   return (
     <AppShell crumb={crumb}>
-      {importOpen && <ImportDrawer onClose={() => setImportOpen(false)} />}
-
-      {createOpen && (
-        <CreateSkillModal
-          onClose={() => setCreateOpen(false)}
+      {addTab && (
+        <AddSkillModal
+          initialTab={addTab}
+          onClose={() => setAddTab(null)}
           onCreated={(created) => {
-            setCreateOpen(false);
+            setAddTab(null);
             router.push(`/skills/${created.id}?tab=config`);
           }}
         />
@@ -95,16 +94,9 @@ export function SkillsView({ selectedId }: { selectedId?: string }) {
                 </Button>
               }
               items={[
-                {
-                  label: t("page.menu.create"),
-                  icon: "Edit",
-                  onClick: () => setCreateOpen(true),
-                },
-                {
-                  label: t("page.menu.fromFile"),
-                  icon: "Upload",
-                  onClick: () => setImportOpen(true),
-                },
+                { label: t("page.menu.create"), icon: "Edit", onClick: () => setAddTab("create") },
+                { label: t("page.menu.fromFile"), icon: "Upload", onClick: () => setAddTab("file") },
+                { label: t("page.menu.fromUrl"), icon: "Link", onClick: () => setAddTab("url") },
               ]}
             />
           }
@@ -142,11 +134,15 @@ export function SkillsView({ selectedId }: { selectedId?: string }) {
             title={skill.name}
             mono
             badges={
-              <Badge color="var(--text-muted)" mono>
-                v{skill.version}
-              </Badge>
+              <>
+                <Badge color="var(--text-muted)" mono>
+                  v{skill.version}
+                </Badge>
+                <ThreatBadge skill={skill} />
+              </>
             }
           >
+            <ThreatBanner skill={skill} />
             <SkillEditor skill={skill} tab={tab} onTab={setTab} />
           </DetailPane>
         )}

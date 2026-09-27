@@ -2,6 +2,7 @@ import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import type { SkillSource, SkillType } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
+import { scanSkillBody } from './domain.js';
 
 export type SkillRow = typeof t.skills.$inferSelect;
 export type SkillVersionRow = typeof t.skillVersions.$inferSelect;
@@ -74,6 +75,15 @@ export class SkillsRepository {
     return row;
   }
 
+  async acceptThreat(workspaceId: string, id: string, userId: string): Promise<SkillRow | undefined> {
+    const [row] = await this.db
+      .update(t.skills)
+      .set({ threatAcceptedAt: new Date(), threatAcceptedBy: userId })
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
+      .returning();
+    return row;
+  }
+
   async deleteById(workspaceId: string, id: string): Promise<boolean> {
     const rows = await this.db
       .delete(t.skills)
@@ -83,6 +93,7 @@ export class SkillsRepository {
   }
 
   async insert(values: InsertSkill): Promise<SkillRow> {
+    const scan = scanSkillBody(values.body);
     return this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(t.skills)
@@ -93,9 +104,11 @@ export class SkillsRepository {
           type: values.type,
           source: values.source,
           body: values.body,
-          enabled: values.enabled ?? true,
+          enabled: scan.level === 'dangerous' ? false : (values.enabled ?? true),
           version: 1,
           ...(values.evidenceFiles !== undefined ? { evidenceFiles: values.evidenceFiles } : {}),
+          threatLevel: scan.level,
+          threatSignals: scan.signals,
         })
         .returning();
       await tx
@@ -120,6 +133,7 @@ export class SkillsRepository {
 
       const bodyChanged = patch.body !== undefined && patch.body !== existing.body;
       const nextVersion = bodyChanged ? existing.version + 1 : existing.version;
+      const rescan = bodyChanged ? scanSkillBody(patch.body!) : null;
 
       const [row] = await tx
         .update(t.skills)
@@ -130,7 +144,15 @@ export class SkillsRepository {
           ...(patch.source !== undefined ? { source: patch.source } : {}),
           ...(patch.body !== undefined ? { body: patch.body } : {}),
           ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
-          ...(bodyChanged ? { version: nextVersion } : {}),
+          ...(bodyChanged
+            ? {
+                version: nextVersion,
+                threatLevel: rescan!.level,
+                threatSignals: rescan!.signals,
+                threatAcceptedAt: null,
+                threatAcceptedBy: null,
+              }
+            : {}),
         })
         .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
         .returning();

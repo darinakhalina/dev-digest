@@ -9,6 +9,7 @@ import type {
   ReviewStrategy,
 } from '@devdigest/shared';
 import { AgentsRepository } from './repository.js';
+import { ValidationError } from '../../platform/errors.js';
 import { toAgentDto, toAgentVersionDto } from './helpers.js';
 
 /**
@@ -67,6 +68,15 @@ export class AgentsService {
   async get(workspaceId: string, id: string): Promise<Agent | undefined> {
     const row = await this.repo.getById(workspaceId, id);
     return row ? toAgentDto(row, await this.skillCount(workspaceId, row.id)) : undefined;
+  }
+
+  private async assertAttachable(workspaceId: string, skillIds: string[]): Promise<void> {
+    const blocked = await this.repo.blockedSkillNames(workspaceId, skillIds);
+    if (blocked.length === 0) return;
+    throw new ValidationError(
+      `Cannot attach a skill flagged for prompt injection: ${blocked.join(', ')}. Edit its body, or accept the risk on the skill first.`,
+      { rule: 'threat_not_accepted', skills: blocked },
+    );
   }
 
   private async skillCount(workspaceId: string, agentId: string): Promise<number> {
@@ -161,6 +171,7 @@ export class AgentsService {
   ): Promise<AgentSkillLink[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
+    await this.assertAttachable(workspaceId, skillIds);
     await this.repo.setSkills(agentId, skillIds);
     return this.skillLinks(agentId);
   }
@@ -174,6 +185,7 @@ export class AgentsService {
   ): Promise<AgentSkillLink[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
+    await this.assertAttachable(workspaceId, [skillId]);
     const existing = await this.repo.linkedSkills(agentId);
     const resolvedOrder = order ?? existing.length;
     await this.repo.linkSkill(agentId, skillId, resolvedOrder);
