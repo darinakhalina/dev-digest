@@ -31,7 +31,10 @@ export function ConventionCard({
   const t = useTranslations("conventions.card");
   const [draft, setDraft] = React.useState<string | null>(null);
 
-  const where = `${candidate.evidence_path}:${candidate.evidence_start_line}-${candidate.evidence_end_line}`;
+  const oneLine = candidate.evidence_start_line === candidate.evidence_end_line;
+  const where = oneLine
+    ? `${candidate.evidence_path}:${candidate.evidence_start_line}`
+    : `${candidate.evidence_path}:${candidate.evidence_start_line}-${candidate.evidence_end_line}`;
   const href =
     repoFullName && sourceSha
       ? githubBlobUrl(

@@ -88,29 +88,35 @@ export function ConventionsView() {
                   })
                 : t("subtitleNone")}
             </p>
-            {scan && scan.discarded_count > 0 && (
-              <span style={s.notice}>
-                <Icon.Info size={13} />
-                {t("discarded", { count: scan.discarded_count })}
-              </span>
-            )}
-            {scan && !scan.indexed && (
-              <span style={s.notice}>
-                <Icon.AlertTriangle size={13} />
-                {t("notIndexed")}
-              </span>
+            {scan && (scan.discarded_count > 0 || !scan.indexed) && (
+              <div style={s.notices}>
+                {scan.discarded_count > 0 && (
+                  <span style={s.notice}>
+                    <Icon.Info size={13} />
+                    {t("discarded", { count: scan.discarded_count })}
+                  </span>
+                )}
+                {!scan.indexed && (
+                  <span style={s.notice}>
+                    <Icon.AlertTriangle size={13} />
+                    {t("notIndexed")}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
           {scan && (
-            <Button
-              kind="secondary"
-              icon="RefreshCw"
-              loading={extract.isPending}
-              onClick={() => runExtraction(candidates.length > 0)}
-            >
-              {extract.isPending ? t("scanning") : t("rescan")}
-            </Button>
+            <div style={s.headerActions}>
+              <Button
+                kind="secondary"
+                icon="RefreshCw"
+                loading={extract.isPending}
+                onClick={() => runExtraction(candidates.length > 0)}
+              >
+                {extract.isPending ? t("scanning") : t("rescan")}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -147,26 +153,25 @@ export function ConventionsView() {
         {candidates.length > 0 && (
           <>
             <div style={s.toolbar}>
-              <div style={s.toolbarLeft}>
-                <span style={s.count}>
-                  {t("selectedCount", { selected: selectedIds.length, total: accepted.length })}
-                </span>
-                {accepted.length > 0 && (
-                  <Button
-                    kind="ghost"
-                    size="sm"
-                    onClick={() =>
-                      setSelected(
-                        selectedIds.length === accepted.length
-                          ? new Set()
-                          : new Set(accepted.map((c) => c.id))
-                      )
-                    }
-                  >
-                    {selectedIds.length === accepted.length ? t("deselectAll") : t("selectAll")}
-                  </Button>
-                )}
-              </div>
+              <span style={s.count}>
+                {t("selectedCount", { selected: selectedIds.length, total: accepted.length })}
+              </span>
+              {accepted.length > 0 && (
+                <Button
+                  kind="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setSelected(
+                      selectedIds.length === accepted.length
+                        ? new Set()
+                        : new Set(accepted.map((c) => c.id))
+                    )
+                  }
+                >
+                  {selectedIds.length === accepted.length ? t("deselectAll") : t("selectAll")}
+                </Button>
+              )}
+              <span style={s.spacer} />
               <Button
                 kind="primary"
                 icon="Sparkles"
