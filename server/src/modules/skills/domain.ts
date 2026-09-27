@@ -345,3 +345,14 @@ export function needsRiskAcceptance(state: ThreatState): boolean {
 export function isBlockedFromModel(state: ThreatState): boolean {
   return needsRiskAcceptance(state) && !isRiskAccepted(state);
 }
+
+const THREAT_SEVERITY: Record<SkillThreatLevel, number> = {
+  unknown: 0,
+  safe: 1,
+  suspicious: 2,
+  dangerous: 3,
+};
+
+export function worseThreat(a: SkillThreatLevel, b: SkillThreatLevel): SkillThreatLevel {
+  return THREAT_SEVERITY[a] >= THREAT_SEVERITY[b] ? a : b;
+}

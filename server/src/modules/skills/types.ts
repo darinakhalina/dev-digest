@@ -41,7 +41,11 @@ export interface SkillAuthoring {
   delete(workspaceId: string, id: string): Promise<boolean>;
   versions(workspaceId: string, id: string): Promise<SkillVersion[] | undefined>;
   restore(workspaceId: string, id: string, version: number): Promise<Skill | undefined>;
-  importPreview(filename: string, contentBase64: string): SkillImportPreview;
-  importUrlPreview(url: string): Promise<SkillImportPreview>;
+  importPreview(
+    workspaceId: string,
+    filename: string,
+    contentBase64: string,
+  ): Promise<SkillImportPreview>;
+  importUrlPreview(workspaceId: string, url: string): Promise<SkillImportPreview>;
   acceptRisk(workspaceId: string, id: string, userId: string): Promise<Skill | undefined>;
 }

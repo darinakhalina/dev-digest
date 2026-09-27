@@ -68,4 +68,9 @@ export const s = {
   } satisfies CSSProperties,
   checkbox: { marginTop: 2, accentColor: "var(--crit)" } satisfies CSSProperties,
   acceptedOn: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  modelReason: {
+    fontSize: 12.5,
+    color: "var(--text-primary)",
+    lineHeight: 1.5,
+  } satisfies CSSProperties,
 } as const;

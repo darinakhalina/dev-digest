@@ -155,6 +155,7 @@ export const Skill = z.object({
   threat_level: SkillThreatLevel.default('unknown'),
   threat_signals: z.array(ImportSignal).default([]),
   threat_accepted_at: z.string().nullish(),
+  threat_reason: z.string().nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
 

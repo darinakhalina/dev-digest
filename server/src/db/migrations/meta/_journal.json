@@ -127,6 +127,13 @@
       "when": 1790505614464,
       "tag": "0017_clammy_swarm",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790508059584,
+      "tag": "0018_robust_hercules",
+      "breakpoints": true
     }
   ]
 }

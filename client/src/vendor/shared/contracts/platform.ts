@@ -18,6 +18,7 @@ export const FeatureModelId = z.enum([
   'risk_brief',
   'conformance',
   'conventions',
+  'skill_scan',
 ]);
 export type FeatureModelId = z.infer<typeof FeatureModelId>;
 
@@ -74,6 +75,13 @@ export const FEATURE_MODELS: FeatureModelDef[] = [
     id: 'conventions',
     label: 'Conventions',
     description: 'Extracts coding conventions from the repo.',
+    defaultProvider: 'openrouter',
+    defaultModel: 'deepseek/deepseek-v4-flash',
+  },
+  {
+    id: 'skill_scan',
+    label: 'Skill Safety Scan',
+    description: 'Classifies a skill body for prompt injection.',
     defaultProvider: 'openrouter',
     defaultModel: 'deepseek/deepseek-v4-flash',
   },

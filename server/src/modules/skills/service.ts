@@ -7,10 +7,13 @@ import {
   parseSkillImport,
   refusalMessage,
   resolveImportUrl,
+  worseThreat,
 } from './domain.js';
+import { classifySkillBody, type ModelVerdict } from './scanner.js';
 import {
   DEFAULT_SKILL_SOURCE,
   DEFAULT_SKILL_TYPE,
+  SCAN_DEADLINE_MS,
   IMPORT_URL_MAX_BYTES,
   IMPORT_URL_MAX_REDIRECTS,
   IMPORT_URL_TIMEOUT_MS,
@@ -51,7 +54,9 @@ export class SkillsService implements SkillAuthoring {
   }
 
   async create(workspaceId: string, input: CreateSkillInput): Promise<Skill> {
+    const verdict = await this.classify(workspaceId, input.body);
     const row = await this.repo.insert({
+      ...(verdict ? { modelLevel: verdict.level, modelReason: verdict.reason } : {}),
       workspaceId,
       name: input.name,
       description: input.description ?? '',
@@ -74,7 +79,12 @@ export class SkillsService implements SkillAuthoring {
       if (!existing) return undefined;
       assertUsable(existing);
     }
-    const row = await this.repo.update(workspaceId, id, patch);
+    const verdict =
+      patch.body === undefined ? null : await this.classify(workspaceId, patch.body);
+    const row = await this.repo.update(workspaceId, id, {
+      ...patch,
+      ...(verdict ? { modelLevel: verdict.level, modelReason: verdict.reason } : {}),
+    });
     return row ? toSkillDto(row) : undefined;
   }
 
@@ -85,7 +95,17 @@ export class SkillsService implements SkillAuthoring {
     return toSkillDto(row, counts.get(row.id) ?? 0);
   }
 
-  async importUrlPreview(url: string): Promise<SkillImportPreview> {
+  private async classify(workspaceId: string, body: string): Promise<ModelVerdict | null> {
+    try {
+      const { provider, model } = await this.container.featureModel(workspaceId, 'skill_scan');
+      const llm = await this.container.llm(provider);
+      return await withDeadline(classifySkillBody(body, llm, model), SCAN_DEADLINE_MS);
+    } catch {
+      return null;
+    }
+  }
+
+  async importUrlPreview(workspaceId: string, url: string): Promise<SkillImportPreview> {
     const resolved = resolveImportUrl(url);
     if (!resolved.ok) {
       throw new ValidationError(refusalMessage(resolved.reason), {
@@ -101,7 +121,10 @@ export class SkillsService implements SkillAuthoring {
       timeoutMs: IMPORT_URL_TIMEOUT_MS,
     });
 
-    return parseSkillImport(resolved.value.filename, new TextEncoder().encode(document.text));
+    return this.withModelVerdict(
+      workspaceId,
+      parseSkillImport(resolved.value.filename, new TextEncoder().encode(document.text)),
+    );
   }
 
   async restore(workspaceId: string, id: string, version: number): Promise<Skill | undefined> {
@@ -126,8 +149,33 @@ export class SkillsService implements SkillAuthoring {
     return this.repo.deleteById(workspaceId, id);
   }
 
-  importPreview(filename: string, contentBase64: string): SkillImportPreview {
-    return parseSkillImport(filename, decodeBase64(contentBase64));
+  async importPreview(
+    workspaceId: string,
+    filename: string,
+    contentBase64: string,
+  ): Promise<SkillImportPreview> {
+    return this.withModelVerdict(workspaceId, parseSkillImport(filename, decodeBase64(contentBase64)));
+  }
+
+  private async withModelVerdict(
+    workspaceId: string,
+    preview: SkillImportPreview,
+  ): Promise<SkillImportPreview> {
+    const verdict = await this.classify(workspaceId, preview.body);
+    if (!verdict) return preview;
+    return { ...preview, threat_level: worseThreat(preview.threat_level, verdict.level) };
+  }
+}
+
+async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  try {
+    return await Promise.race([work, deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

@@ -36,6 +36,7 @@ export const skills = pgTable(
       .notNull()
       .default('unknown'),
     threatSignals: jsonb('threat_signals').$type<ImportSignal[]>(),
+    threatReason: text('threat_reason'),
     threatAcceptedAt: timestamp('threat_accepted_at', { withTimezone: true }),
     threatAcceptedBy: uuid('threat_accepted_by').references(() => users.id, {
       onDelete: 'set null',

@@ -233,6 +233,7 @@
       "exfiltration": "Points data at an outside address",
       "shell_block": "Carries a shell command block",
       "hidden_characters": "Contains invisible characters"
-    }
+    },
+    "modelReason": "No pattern matched, but the safety classifier flagged it: {reason}"
   }
 }

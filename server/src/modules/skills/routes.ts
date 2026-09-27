@@ -67,13 +67,13 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
   });
 
   app.post('/skills/import', { schema: { body: ImportSkillBody } }, async (req) => {
-    await getContext(app.container, req);
-    return service.importPreview(req.body.filename, req.body.content_base64);
+    const { workspaceId } = await getContext(app.container, req);
+    return service.importPreview(workspaceId, req.body.filename, req.body.content_base64);
   });
 
   app.post('/skills/import-url', { schema: { body: ImportSkillUrlBody } }, async (req) => {
-    await getContext(app.container, req);
-    return service.importUrlPreview(req.body.url);
+    const { workspaceId } = await getContext(app.container, req);
+    return service.importUrlPreview(workspaceId, req.body.url);
   });
 
   app.post(

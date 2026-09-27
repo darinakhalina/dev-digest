@@ -1,0 +1,1 @@
+ALTER TABLE "skills" ADD COLUMN "threat_reason" text;

@@ -1,8 +1,8 @@
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
-import type { SkillSource, SkillType } from '@devdigest/shared';
+import type { SkillSource, SkillThreatLevel, SkillType } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import { scanSkillBody } from './domain.js';
+import { scanSkillBody, worseThreat } from './domain.js';
 
 export type SkillRow = typeof t.skills.$inferSelect;
 export type SkillVersionRow = typeof t.skillVersions.$inferSelect;
@@ -16,6 +16,8 @@ export interface InsertSkill {
   body: string;
   enabled?: boolean;
   evidenceFiles?: string[];
+  modelLevel?: SkillThreatLevel;
+  modelReason?: string;
 }
 
 export interface UpdateSkill {
@@ -25,6 +27,8 @@ export interface UpdateSkill {
   source?: SkillSource;
   body?: string;
   enabled?: boolean;
+  modelLevel?: SkillThreatLevel;
+  modelReason?: string;
 }
 
 export class SkillsRepository {
@@ -94,6 +98,7 @@ export class SkillsRepository {
 
   async insert(values: InsertSkill): Promise<SkillRow> {
     const scan = scanSkillBody(values.body);
+    const level = worseThreat(scan.level, values.modelLevel ?? 'unknown');
     return this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(t.skills)
@@ -104,11 +109,12 @@ export class SkillsRepository {
           type: values.type,
           source: values.source,
           body: values.body,
-          enabled: scan.level === 'dangerous' ? false : (values.enabled ?? true),
+          enabled: level === 'dangerous' ? false : (values.enabled ?? true),
           version: 1,
           ...(values.evidenceFiles !== undefined ? { evidenceFiles: values.evidenceFiles } : {}),
-          threatLevel: scan.level,
+          threatLevel: level,
           threatSignals: scan.signals,
+          threatReason: values.modelReason ?? null,
         })
         .returning();
       await tx
@@ -134,6 +140,9 @@ export class SkillsRepository {
       const bodyChanged = patch.body !== undefined && patch.body !== existing.body;
       const nextVersion = bodyChanged ? existing.version + 1 : existing.version;
       const rescan = bodyChanged ? scanSkillBody(patch.body!) : null;
+      const rescanLevel = rescan
+        ? worseThreat(rescan.level, patch.modelLevel ?? 'unknown')
+        : null;
 
       const [row] = await tx
         .update(t.skills)
@@ -147,8 +156,9 @@ export class SkillsRepository {
           ...(bodyChanged
             ? {
                 version: nextVersion,
-                threatLevel: rescan!.level,
+                threatLevel: rescanLevel!,
                 threatSignals: rescan!.signals,
+                threatReason: patch.modelReason ?? null,
                 threatAcceptedAt: null,
                 threatAcceptedBy: null,
               }

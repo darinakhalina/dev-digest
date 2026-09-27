@@ -41,6 +41,10 @@ export function ThreatBanner({ skill }: { skill: Skill }) {
         </span>
       </div>
 
+      {signals.length === 0 && skill.threat_reason && (
+        <p style={s.modelReason}>{t("threat.modelReason", { reason: skill.threat_reason })}</p>
+      )}
+
       {signals.length > 0 && (
         <ul style={s.signalList}>
           {signals.map((signal) => (
