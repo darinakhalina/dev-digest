@@ -74,7 +74,7 @@ export function CreateSkillModal({
     <Modal
       width={760}
       title={t("title")}
-      subtitle={t("subtitle", { count: conventionIds.length, repo: repoFullName })}
+      subtitle={<span className="mono">{name}</span>}
       onClose={onClose}
       footer={
         <>
@@ -116,23 +116,26 @@ export function CreateSkillModal({
             <TextInput value={description} onChange={setDescription} />
           </FormField>
 
-          <FormField label={t("typeLabel")}>
-            <SelectInput
-              value={type}
-              onChange={(v) => setType(v as SkillType)}
-              options={[...TYPES]}
-            />
-          </FormField>
+          <div style={{ display: "flex", gap: 14 }}>
+            <div style={{ flex: 1 }}>
+              <FormField label={t("typeLabel")}>
+                <SelectInput
+                  value={type}
+                  onChange={(v) => setType(v as SkillType)}
+                  options={[...TYPES]}
+                />
+              </FormField>
+            </div>
+            <div style={{ flex: 1 }}>
+              <FormField label={t("enabledLabel")} hint={t("enabledHint")}>
+                <div style={{ display: "flex", alignItems: "center", height: 36 }}>
+                  <Toggle on={enabled} onChange={setEnabled} size={17} label={t("enabledLabel")} />
+                </div>
+              </FormField>
+            </div>
+          </div>
 
-          <FormField
-            label={t("enabledLabel")}
-            hint={t("enabledHint")}
-            right={<Toggle on={enabled} onChange={setEnabled} label={t("enabledLabel")} />}
-          >
-            <></>
-          </FormField>
-
-          <FormField label={t("bodyLabel")} required>
+          <FormField label={t("bodyLabel")} required hint={t("bodyHint")}>
             <Textarea value={body} onChange={setBody} rows={16} mono />
           </FormField>
         </>

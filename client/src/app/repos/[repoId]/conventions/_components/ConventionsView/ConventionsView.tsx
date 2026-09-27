@@ -20,29 +20,27 @@ export function ConventionsView() {
   const extract = useExtractConventions(repoId ?? "");
   const update = useUpdateConvention(repoId ?? "");
 
-  const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = React.useState(false);
   const [failedId, setFailedId] = React.useState<string | null>(null);
 
   const scan = data?.scan ?? null;
   const candidates = data?.candidates ?? [];
   const accepted = candidates.filter((c) => c.status === "accepted");
-  const selectedIds = accepted.filter((c) => selected.has(c.id)).map((c) => c.id);
+  const acceptedIds = accepted.map((c) => c.id);
+  const allAccepted = candidates.length > 0 && accepted.length === candidates.length;
 
   const repoName = activeRepo?.full_name ?? t("repoFallback");
 
-  const toggle = (id: string, on: boolean) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-
   const decide = (id: string, status: ConventionStatus) => {
     setFailedId(null);
-    if (status !== "accepted") toggle(id, false);
     update.mutate({ id, status }, { onError: () => setFailedId(id) });
+  };
+
+  const decideAll = (status: ConventionStatus) => {
+    setFailedId(null);
+    for (const c of candidates) {
+      if (c.status !== status) update.mutate({ id: c.id, status });
+    }
   };
 
   const reword = (id: string, rule: string) => {
@@ -52,7 +50,6 @@ export function ConventionsView() {
 
   const runExtraction = (confirmFirst: boolean) => {
     if (confirmFirst && !window.confirm(t("rescanWarning"))) return;
-    setSelected(new Set());
     extract.mutate();
   };
 
@@ -62,12 +59,9 @@ export function ConventionsView() {
         <CreateSkillModal
           repoId={repoId}
           repoFullName={repoName}
-          conventionIds={selectedIds}
+          conventionIds={acceptedIds}
           onClose={() => setModalOpen(false)}
-          onCreated={() => {
-            setModalOpen(false);
-            setSelected(new Set());
-          }}
+          onCreated={() => setModalOpen(false)}
         />
       )}
 
@@ -153,29 +147,23 @@ export function ConventionsView() {
         {candidates.length > 0 && (
           <>
             <div style={s.toolbar}>
+              <Button
+                kind="ghost"
+                size="sm"
+                icon={allAccepted ? "X" : "Check"}
+                onClick={() => decideAll(allAccepted ? "pending" : "accepted")}
+              >
+                {allAccepted ? t("deselectAll") : t("acceptAll")}
+              </Button>
               <span style={s.count}>
-                {t("selectedCount", { selected: selectedIds.length, total: accepted.length })}
+                {t("acceptedCount", { accepted: accepted.length, total: candidates.length })}
               </span>
-              {accepted.length > 0 && (
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setSelected(
-                      selectedIds.length === accepted.length
-                        ? new Set()
-                        : new Set(accepted.map((c) => c.id))
-                    )
-                  }
-                >
-                  {selectedIds.length === accepted.length ? t("deselectAll") : t("selectAll")}
-                </Button>
-              )}
               <span style={s.spacer} />
               <Button
                 kind="primary"
+                size="sm"
                 icon="Sparkles"
-                disabled={selectedIds.length === 0}
+                disabled={accepted.length === 0}
                 onClick={() => setModalOpen(true)}
               >
                 {t("createSkill")}
@@ -189,9 +177,7 @@ export function ConventionsView() {
                   candidate={candidate}
                   repoFullName={activeRepo?.full_name ?? null}
                   sourceSha={scan?.source_sha ?? null}
-                  selected={selected.has(candidate.id)}
                   saveError={failedId === candidate.id}
-                  onSelect={(on) => toggle(candidate.id, on)}
                   onDecide={(status) => decide(candidate.id, status)}
                   onRule={(rule) => reword(candidate.id, rule)}
                 />

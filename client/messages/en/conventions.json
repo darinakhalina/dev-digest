@@ -15,8 +15,6 @@
     "extractionFailed": "Extraction failed",
     "loadError": "Could not load conventions.",
     "retry": "Try again",
-    "selectedCount": "{selected} of {total} selected",
-    "selectAll": "Select all",
     "deselectAll": "Deselect all",
     "createSkill": "Create skill",
     "empty": {
@@ -27,7 +25,9 @@
     "noneSurvived": {
       "title": "Nothing survived verification",
       "body": "The scan ran, but every proposal cited code that is not in the sampled files. That is a real result, not a failure — try re-scanning, or index the repo first."
-    }
+    },
+    "acceptAll": "Accept all",
+    "acceptedCount": "{accepted} of {total} accepted"
   },
   "card": {
     "confidence": "Confidence",
@@ -42,8 +42,7 @@
     "cancel": "Cancel",
     "saveFailed": "Could not save that change.",
     "evidenceHint": "Opens this code on GitHub at the scanned commit",
-    "evidenceUnlinkable": "The scanned commit is not published, so this cannot be opened on GitHub",
-    "selectForSkill": "Include in skill"
+    "evidenceUnlinkable": "The scanned commit is not published, so this cannot be opened on GitHub"
   },
   "modal": {
     "title": "Create skill from conventions",
@@ -56,13 +55,15 @@
     "descriptionLabel": "Description",
     "typeLabel": "Type",
     "enabledLabel": "Enabled",
-    "enabledHint": "Off by default — read the merged body before it reaches an agent's prompt.",
+    "enabledHint": "Whether this block is added to agents' prompts.",
     "bodyLabel": "Skill body",
     "unsaved": "unsaved",
     "cancel": "Cancel",
     "save": "Create skill",
     "saving": "Saving…",
     "createdToast": "Created skill \"{name}\".",
-    "failed": "Could not create the skill."
+    "failed": "Could not create the skill.",
+    "bodyHint": "The only text sent to the model. Merged from the accepted rules + evidence — edit freely.",
+    "tokens": "{count} tokens"
   }
 }

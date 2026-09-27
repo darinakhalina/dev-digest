@@ -23,6 +23,7 @@ export interface RenderableCandidate {
   evidencePath: string;
   evidenceStartLine: number;
   evidenceEndLine: number;
+  evidenceSnippet: string;
 }
 
 function normalizeLine(line: string): string {
@@ -117,35 +118,78 @@ export function suggestSkillName(repoFullName: string): string {
   return slug ? `${slug}-${DEFAULT_SKILL_NAME_SUFFIX}` : FALLBACK_SKILL_NAME;
 }
 
+const RULE_STOPWORDS = new Set([
+  'always', 'use', 'the', 'a', 'an', 'to', 'of', 'instead', 'must', 'should',
+  'all', 'in', 'via', 'through', 'are', 'is', 'and', 'with', 'for', 'every',
+]);
+
+export function slugifyRule(rule: string): string {
+  const words = rule
+    .toLowerCase()
+    .replace(/`/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .split('-')
+    .filter((w) => w && !RULE_STOPWORDS.has(w));
+  return words.slice(0, 4).join('-');
+}
+
+export function formatEvidenceRange(
+  path: string,
+  startLine: number,
+  endLine: number,
+): string {
+  return startLine === endLine ? `${path}:${startLine}` : `${path}:${startLine}-${endLine}`;
+}
+
 export function renderSkillBody(
   skillName: string,
   repoFullName: string,
   candidates: RenderableCandidate[],
 ): string {
-  const rules = candidates.map((c, i) => {
-    const rule = asContent(c.rule)
-      .split('\n')
-      .map((line, j) => (j === 0 ? line : `   ${line}`))
-      .join('\n');
-    const where = `${c.evidencePath}:${c.evidenceStartLine}-${c.evidenceEndLine}`;
-    return `${i + 1}. ${rule}\n\n   Category: ${asInlineContent(c.category)}\n   Detected in \`${where}\``;
+  const sections = candidates.map((c, i) => {
+    const heading = slugifyRule(c.rule) || `rule-${i + 1}`;
+    const fence = fenceFor(c.evidenceSnippet);
+    const where = formatEvidenceRange(c.evidencePath, c.evidenceStartLine, c.evidenceEndLine);
+    return [
+      `## ${heading}`,
+      asContent(c.rule),
+      '',
+      `Detected in \`${where}\`:`,
+      '',
+      fence,
+      c.evidenceSnippet,
+      fence,
+    ].join('\n');
   });
 
   return [
     `# ${skillName}`,
     '',
-    `House conventions detected in \`${repoFullName}\`. Flag any change that violates a rule below,`,
-    'and cite the offending `file:line`. Each rule was verified against real code at the commit named',
-    'with it; if the cited code no longer exists, say so instead of guessing.',
+    `House conventions for \`${repoFullName}\`. Flag changes that violate any rule below and`,
+    'cite the offending `file:line`.',
     '',
-    '## Rules',
-    '',
-    rules.join('\n\n'),
+    sections.join('\n\n'),
     '',
   ].join('\n');
 }
 
-export function describeSkill(repoFullName: string, count: number): string {
-  const noun = count === 1 ? 'house convention' : 'house conventions';
-  return `${count} ${noun} extracted from ${repoFullName}`;
+export function describeSkill(
+  repoFullName: string,
+  candidates: RenderableCandidate[],
+): string {
+  if (candidates.length === 1) return asInlineContent(candidates[0]!.rule);
+  const noun = candidates.length === 1 ? 'house convention' : 'house conventions';
+  return `${candidates.length} ${noun} extracted from ${repoFullName}`;
+}
+
+export function proposeSkillName(
+  repoFullName: string,
+  candidates: RenderableCandidate[],
+): string {
+  if (candidates.length === 1) {
+    const slug = slugifyRule(candidates[0]!.rule);
+    if (slug) return slug;
+  }
+  return suggestSkillName(repoFullName);
 }

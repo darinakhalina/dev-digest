@@ -15,9 +15,10 @@ import { ATTEMPT_TIMEOUT_MS, MAX_CANDIDATES, SCAN_TIMEOUT_MS } from './constants
 import {
   describeSkill,
   findSnippetLines,
+  formatEvidenceRange,
   hasEvidentialSubstance,
+  proposeSkillName,
   renderSkillBody,
-  suggestSkillName,
   type RenderableCandidate,
 } from './domain.js';
 import { buildConventionsPrompt } from './prompts.js';
@@ -183,11 +184,12 @@ export class ConventionsService {
   ): Promise<ConventionSkillProposal> {
     const repo = await this.requireRepo(workspaceId, repoId);
     const rows = await this.requireAccepted(workspaceId, repoId, conventionIds);
-    const skillName = name ?? suggestSkillName(repo.fullName);
+    const renderable = rows.map(toRenderable);
+    const skillName = name ?? proposeSkillName(repo.fullName, renderable);
     return {
       name: skillName,
-      description: describeSkill(repo.fullName, rows.length),
-      body: renderSkillBody(skillName, repo.fullName, rows.map(toRenderable)),
+      description: describeSkill(repo.fullName, renderable),
+      body: renderSkillBody(skillName, repo.fullName, renderable),
     };
   }
 
@@ -205,8 +207,8 @@ export class ConventionsService {
       source: 'extracted',
       body: input.body,
       enabled: input.enabled,
-      evidenceFiles: rows.map(
-        (r) => `${r.evidencePath}:${r.evidenceStartLine}-${r.evidenceEndLine}`,
+      evidenceFiles: rows.map((r) =>
+        formatEvidenceRange(r.evidencePath, r.evidenceStartLine, r.evidenceEndLine),
       ),
     });
   }
@@ -297,6 +299,7 @@ function toRenderable(row: ConventionRow): RenderableCandidate {
     evidencePath: row.evidencePath,
     evidenceStartLine: row.evidenceStartLine,
     evidenceEndLine: row.evidenceEndLine,
+    evidenceSnippet: row.evidenceSnippet,
   };
 }
 
