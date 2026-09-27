@@ -1,6 +1,11 @@
 import type { CSSProperties } from "react";
 
 export const s = {
+  body: { padding: 24 } satisfies CSSProperties,
+  row: { display: "flex", gap: 14 } satisfies CSSProperties,
+  col: { flex: 1 } satisfies CSSProperties,
+  toggleWrap: { display: "flex", alignItems: "center", height: 36 } satisfies CSSProperties,
+  footer: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
   banner: {
     display: "flex",
     alignItems: "center",

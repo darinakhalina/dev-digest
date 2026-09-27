@@ -19,10 +19,12 @@ export const MAX_CANDIDATES = 12;
 export const MAX_SNIPPET_CHARS = 2000;
 
 export const MAX_FILE_LINES = 400;
+export const MAX_FILE_BYTES = 512_000;
 export const MAX_PROMPT_CHARS = 150_000;
 
 export const MIN_EVIDENCE_LINES = 2;
 export const MIN_EVIDENCE_CHARS = 24;
+export const MIN_EVIDENCE_CHARS_MULTILINE = 12;
 
 export const ATTEMPT_TIMEOUT_MS = 45_000;
 export const SCAN_TIMEOUT_MS = 100_000;

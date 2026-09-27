@@ -12,7 +12,7 @@ import {
   TextInput,
   Toggle,
 } from "@devdigest/ui";
-import { SKILL_NAME_RE, type SkillType } from "@devdigest/shared";
+import { SkillName, type SkillType } from "@devdigest/shared";
 import { useCreateSkillFromConventions, useSkillProposal } from "@/lib/hooks/conventions";
 import { SkillBodyEditor } from "../SkillBodyEditor";
 import { s } from "./styles";
@@ -48,9 +48,13 @@ export function CreateSkillModal({
   const [ready, setReady] = React.useState(false);
 
   const load = proposal.mutate;
+  const idsKey = conventionIds.join(",");
+  const idsRef = React.useRef(conventionIds);
+  idsRef.current = conventionIds;
+
   React.useEffect(() => {
     load(
-      { conventionIds },
+      { conventionIds: idsRef.current },
       {
         onSuccess: (data) => {
           setName(data.name);
@@ -60,14 +64,16 @@ export function CreateSkillModal({
         },
       }
     );
-  }, [load, conventionIds]);
+  }, [load, idsKey]);
 
-  const nameValid = SKILL_NAME_RE.test(name);
+  const nameValid = SkillName.safeParse(name).success;
 
   if (proposal.isError) {
     return (
       <Modal title={t("title")} onClose={onClose}>
-        <p>{t("failed")}</p>
+        <div style={s.body}>
+          <p>{t("failed")}</p>
+        </div>
       </Modal>
     );
   }
@@ -79,7 +85,7 @@ export function CreateSkillModal({
       subtitle={<span className="mono">{name}</span>}
       onClose={onClose}
       footer={
-        <>
+        <div style={s.footer}>
           <span style={s.footerNote}>
             <Icon.GitCommit size={13} />
             {t.rich("footerNote", {
@@ -93,7 +99,12 @@ export function CreateSkillModal({
             kind="primary"
             icon="Sparkles"
             loading={create.isPending}
-            disabled={!ready || !nameValid || body.trim().length === 0}
+            disabled={
+              !ready ||
+              !nameValid ||
+              body.trim().length === 0 ||
+              description.trim().length === 0
+            }
             onClick={() =>
               create.mutate(
                 { conventionIds, name, description, type, enabled, body },
@@ -102,20 +113,21 @@ export function CreateSkillModal({
                     toast.success(t("createdToast", { name: skill.name }));
                     onCreated();
                   },
-                  onError: () => toast.error(t("failed")),
                 }
               )
             }
           >
             {create.isPending ? t("saving") : t("save")}
           </Button>
-        </>
+        </div>
       }
     >
       {!ready ? (
-        <Skeleton height={320} />
+        <div style={s.body}>
+          <Skeleton height={320} />
+        </div>
       ) : (
-        <>
+        <div style={s.body}>
           <div style={s.banner}>
             <Icon.Wrench size={15} style={s.bannerIcon} />
             <span style={s.bannerText}>
@@ -132,12 +144,12 @@ export function CreateSkillModal({
             <TextInput value={name} onChange={setName} placeholder={t("namePlaceholder")} mono />
           </FormField>
 
-          <FormField label={t("descriptionLabel")}>
+          <FormField label={t("descriptionLabel")} required>
             <TextInput value={description} onChange={setDescription} />
           </FormField>
 
-          <div style={{ display: "flex", gap: 14 }}>
-            <div style={{ flex: 1 }}>
+          <div style={s.row}>
+            <div style={s.col}>
               <FormField label={t("typeLabel")}>
                 <SelectInput
                   value={type}
@@ -146,9 +158,9 @@ export function CreateSkillModal({
                 />
               </FormField>
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={s.col}>
               <FormField label={t("enabledLabel")} hint={t("enabledHint")}>
-                <div style={{ display: "flex", alignItems: "center", height: 36 }}>
+                <div style={s.toggleWrap}>
                   <Toggle on={enabled} onChange={setEnabled} size={17} label={t("enabledLabel")} />
                 </div>
               </FormField>
@@ -162,7 +174,7 @@ export function CreateSkillModal({
               filename={`${name || "skill"}.md`}
             />
           </FormField>
-        </>
+        </div>
       )}
     </Modal>
   );

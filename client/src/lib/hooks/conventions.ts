@@ -58,8 +58,17 @@ export function useUpdateConvention(repoId: string) {
       return { previous };
     },
 
-    onError: (_err, _vars, context) => {
-      if (context?.previous) qc.setQueryData(key, context.previous);
+    onError: (_err, vars, context) => {
+      const before = context?.previous?.candidates.find((c) => c.id === vars.id);
+      if (!before) return;
+      qc.setQueryData<ConventionsList>(key, (current) =>
+        current
+          ? {
+              ...current,
+              candidates: current.candidates.map((c) => (c.id === vars.id ? before : c)),
+            }
+          : current
+      );
     },
 
     onSuccess: (updated) => {
@@ -74,6 +83,8 @@ export function useUpdateConvention(repoId: string) {
           : current
       );
     },
+
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 }
 

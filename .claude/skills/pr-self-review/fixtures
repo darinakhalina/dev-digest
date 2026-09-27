@@ -8,7 +8,9 @@
 # This is the only way past the gate that does not need a person at a terminal,
 # and it is deliberately narrow:
 #   - the branch must be the one currently checked out, matched in full, no globs
-#   - a line with no reason does not count
+#   - the list is read from origin/main, NOT the working tree: a branch cannot add
+#     its own name and push in the same breath. An entry counts once it is merged
+#   - a reason of only whitespace does not count
 #   - it lives in git, so adding a branch is a reviewable change somebody approved,
 #     not an environment variable nobody sees
 #   - the reason is echoed on every push, so it cannot be forgotten

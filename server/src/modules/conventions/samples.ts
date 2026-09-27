@@ -1,6 +1,6 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { CONFIG_SAMPLE_PATHS, SOURCE_SAMPLE_COUNT } from './constants.js';
+import { lstat, readFile } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
+import { CONFIG_SAMPLE_PATHS, MAX_FILE_BYTES, SOURCE_SAMPLE_COUNT } from './constants.js';
 import { truncateForPrompt, type SampledFile } from './domain.js';
 
 export interface ScannableRepo {
@@ -56,9 +56,16 @@ export class CloneSampleProvider implements SampleProvider {
   }
 
   private async readAll(clonePath: string, paths: string[]): Promise<SampledFile[]> {
+    const root = resolve(clonePath);
     const read = await Promise.all(
       paths.map(async (path) => {
-        const content = await readFile(join(clonePath, path), 'utf8').catch(() => null);
+        const full = resolve(root, path);
+        if (full !== root && !full.startsWith(root + sep)) return null;
+
+        const stats = await lstat(full).catch(() => null);
+        if (!stats || !stats.isFile() || stats.size > MAX_FILE_BYTES) return null;
+
+        const content = await readFile(full, 'utf8').catch(() => null);
         return content === null ? null : truncateForPrompt(path, content);
       }),
     );

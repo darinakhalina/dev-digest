@@ -48,6 +48,7 @@ export function SkillBodyEditor({
           id={id}
           className="mono"
           value={value}
+          wrap="off"
           spellCheck={false}
           onChange={(e) => onChange(e.target.value)}
           onScroll={(e) => {

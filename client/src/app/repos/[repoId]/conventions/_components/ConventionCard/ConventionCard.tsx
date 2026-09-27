@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, Icon, MonoLink, ProgressBar, Textarea } from "@devdigest/ui";
+import { Button, IconBtn, MonoLink, ProgressBar, Textarea } from "@devdigest/ui";
 import type { ConventionCandidate, ConventionStatus } from "@devdigest/shared";
 import { githubBlobUrl } from "@/lib/github-urls";
 import { CONFIDENCE_OK, s } from "./styles";
@@ -85,9 +85,10 @@ export function ConventionCard({
                   {where}
                 </span>
               )}
-              <Icon.Copy
-                size={12}
-                style={s.copy}
+              <IconBtn
+                icon="Copy"
+                label={t("copyPath")}
+                size={24}
                 onClick={() => void navigator.clipboard?.writeText(where)}
               />
             </div>

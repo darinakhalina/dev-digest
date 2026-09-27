@@ -28,12 +28,17 @@ a whole statement, signature or block.
 Propose only the strongest, most specific candidates. Few and real beats many and
 plausible; there is no target count and no credit for filling a list.`;
 
+function safeLabel(path: string): string {
+  return path.replace(/[^A-Za-z0-9._/-]+/g, '_').slice(0, 200);
+}
+
 function renderFile(file: SampledFile): string {
+  const label = safeLabel(file.path);
   const note =
     file.truncatedAtLine === null
       ? ''
       : `\n[truncated after line ${file.truncatedAtLine}]`;
-  return `### ${file.path}\n${wrapUntrusted(file.path, file.content + note)}`;
+  return `### ${label}\n${wrapUntrusted(label, file.content + note)}`;
 }
 
 function withinBudget(files: SampledFile[]): SampledFile[] {

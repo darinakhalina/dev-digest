@@ -1,6 +1,7 @@
 import {
   MAX_FILE_LINES,
   MIN_EVIDENCE_CHARS,
+  MIN_EVIDENCE_CHARS_MULTILINE,
   MIN_EVIDENCE_LINES,
   DEFAULT_SKILL_NAME_SUFFIX,
   FALLBACK_SKILL_NAME,
@@ -42,13 +43,12 @@ export function hasEvidentialSubstance(snippet: string): boolean {
   const lines = trimBlankEdges(snippet.split(/\r?\n/));
   if (lines.length === 0) return false;
 
-  const joined = lines.join('');
-  if (!/[A-Za-z0-9_]/.test(joined)) return false;
+  const dense = lines.join('').replace(/\s+/g, '');
+  if (!/[A-Za-z0-9_]/.test(dense)) return false;
 
-  if (lines.length >= MIN_EVIDENCE_LINES) return true;
-
-  const dense = lines[0]!.replace(/\s+/g, '');
-  return dense.length >= MIN_EVIDENCE_CHARS;
+  const floor =
+    lines.length >= MIN_EVIDENCE_LINES ? MIN_EVIDENCE_CHARS_MULTILINE : MIN_EVIDENCE_CHARS;
+  return dense.length >= floor;
 }
 
 export function findSnippetLines(
@@ -61,6 +61,7 @@ export function findSnippetLines(
 
   const normFile = fileLines.map(normalizeLine);
   const normSnippet = snippetLines.map(normalizeLine);
+  let found: VerifiedLineRange | null = null;
 
   for (let i = 0; i <= normFile.length - normSnippet.length; i++) {
     let matched = true;
@@ -70,9 +71,12 @@ export function findSnippetLines(
         break;
       }
     }
-    if (matched) return { startLine: i + 1, endLine: i + normSnippet.length };
+    if (matched) {
+      if (found) return null;
+      found = { startLine: i + 1, endLine: i + normSnippet.length };
+    }
   }
-  return null;
+  return found;
 }
 
 export function truncateForPrompt(path: string, content: string): SampledFile {
@@ -96,7 +100,7 @@ export function fenceFor(content: string): string {
 }
 
 const STRUCTURAL_LINE =
-  /^\s*(#{1,6}\s|`{3,}|~{3,}|-{3,}\s*$|\*{3,}\s*$|_{3,}\s*$|---\s*$)/;
+  /^\s*(#{1,6}\s|`{3,}|~{3,}|<|={2,}\s*$|-{2,}\s*$|\*{3,}\s*$|_{3,}\s*$)/;
 
 export function asContent(text: string): string {
   return text
@@ -150,7 +154,7 @@ export function renderSkillBody(
   const sections = candidates.map((c, i) => {
     const heading = slugifyRule(c.rule) || `rule-${i + 1}`;
     const fence = fenceFor(c.evidenceSnippet);
-    const where = formatEvidenceRange(c.evidencePath, c.evidenceStartLine, c.evidenceEndLine);
+    const where = formatEvidenceRange(c.evidencePath, c.evidenceStartLine, c.evidenceEndLine).replace(/`/g, '');
     return [
       `## ${heading}`,
       asContent(c.rule),

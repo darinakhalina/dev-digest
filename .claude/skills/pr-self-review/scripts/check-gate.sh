@@ -87,10 +87,10 @@ if [ -n "${PR_SELF_REVIEW_OVERRIDE:-}" ]; then
   allow
 fi
 
-FIXTURES="$DIR/../fixtures"
 branch="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
-if [ -n "$branch" ] && [ "$branch" != "HEAD" ] && [ -f "$FIXTURES" ]; then
-  reason="$(awk -F'\t' -v b="$branch" '$1 == b && $2 != "" { print $2; exit }' "$FIXTURES")"
+if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
+  reason="$(git -C "$ROOT" show origin/main:.claude/skills/pr-self-review/fixtures 2>/dev/null \
+    | awk -F'\t' -v b="$branch" '$1 == b && $2 ~ /[^ \t]/ { print $2; exit }')"
   if [ -n "$reason" ]; then
     echo "pr-self-review: '$branch' is a declared fixture branch — $reason" >&2
     allow

@@ -57,6 +57,6 @@ export const s = {
     fontSize: 12.5,
     lineHeight: `${LINE_HEIGHT}px`,
     overflow: "auto",
-    whiteSpace: "pre-wrap",
+    whiteSpace: "pre",
   } satisfies CSSProperties,
 } as const;

@@ -11,10 +11,8 @@
     "scanning": "Scanning…",
     "rescan": "Re-scan",
     "rescanWarning": "Re-scanning replaces these candidates with a fresh set. Decisions made here will not carry over. Continue?",
-    "runExtraction": "Run extraction",
     "extractionFailed": "Extraction failed",
     "loadError": "Could not load conventions.",
-    "retry": "Try again",
     "deselectAll": "Deselect all",
     "createSkill": "Create skill",
     "empty": {
@@ -41,13 +39,12 @@
     "save": "Save",
     "cancel": "Cancel",
     "saveFailed": "Could not save that change.",
-    "evidenceHint": "Opens this code on GitHub at the scanned commit",
-    "evidenceUnlinkable": "The scanned commit is not published, so this cannot be opened on GitHub"
+    "evidenceUnlinkable": "The scanned commit is not published, so this cannot be opened on GitHub",
+    "copyPath": "Copy the file and line"
   },
   "modal": {
     "title": "Create skill from conventions",
     "subtitle": "Merged from <b>{count, plural, one {# accepted convention} other {# accepted conventions}}</b> in <repoName>{repo}</repoName>. Everything below is editable before you save.",
-    "loading": "Building the proposal…",
     "nameLabel": "Name",
     "namePlaceholder": "repo-conventions",
     "nameHint": "A slug — lowercase letters, digits and dashes.",
@@ -65,6 +62,12 @@
     "failed": "Could not create the skill.",
     "bodyHint": "The only text sent to the model. Merged from the accepted rules + evidence — edit freely.",
     "tokens": "{count} tokens",
-    "footerNote": "Saved as <v>v1</v> · added to Skills Lab"
+    "footerNote": "Saved as <v>v1</v> · added to Skills Lab",
+    "type": {
+      "rubric": "rubric",
+      "convention": "convention",
+      "security": "security",
+      "custom": "custom"
+    }
   }
 }
