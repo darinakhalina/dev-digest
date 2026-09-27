@@ -1,0 +1,18 @@
+# Declared fixture branches:  <branch><TAB><reason>
+#
+# A fixture branch exists to CARRY a defect — a breaking change an experiment has
+# to measure, a broken tree a gate has to be proved against. Gating it is
+# meaningless: it cannot pass a check designed to stop the very thing it exists
+# for, and re-running the review will never change that.
+#
+# This is the only way past the gate that does not need a person at a terminal,
+# and it is deliberately narrow:
+#   - the branch must be the one currently checked out, matched in full, no globs
+#   - a line with no reason does not count
+#   - it lives in git, so adding a branch is a reviewable change somebody approved,
+#     not an environment variable nobody sees
+#   - the reason is echoed on every push, so it cannot be forgotten
+#
+# A fixture branch is never for merging. Delete its line once the branch is gone.
+
+demo/breaking-api-change	carries the breaking change the with/without-skills experiment measures; never to be merged
