@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import {
   Button,
   FormField,
+  Icon,
   Modal,
   SelectInput,
   Skeleton,
@@ -14,6 +15,7 @@ import {
 } from "@devdigest/ui";
 import { SKILL_NAME_RE, type SkillType } from "@devdigest/shared";
 import { useCreateSkillFromConventions, useSkillProposal } from "@/lib/hooks/conventions";
+import { s } from "./styles";
 import { useToast } from "@/lib/toast";
 
 const TYPES: SkillType[] = ["convention", "rubric", "security", "custom"];
@@ -78,6 +80,12 @@ export function CreateSkillModal({
       onClose={onClose}
       footer={
         <>
+          <span style={s.footerNote}>
+            <Icon.GitCommit size={13} />
+            {t.rich("footerNote", {
+              v: (chunks) => <span className="mono">{chunks}</span>,
+            })}
+          </span>
           <Button kind="ghost" onClick={onClose}>
             {t("cancel")}
           </Button>
@@ -108,6 +116,18 @@ export function CreateSkillModal({
         <Skeleton height={320} />
       ) : (
         <>
+          <div style={s.banner}>
+            <Icon.Wrench size={15} style={s.bannerIcon} />
+            <span style={s.bannerText}>
+              {t.rich("subtitle", {
+                count: conventionIds.length,
+                repo: repoFullName,
+                b: (chunks) => <b style={s.bannerStrong}>{chunks}</b>,
+                repoName: (chunks) => <span className="mono" style={s.bannerRepo}>{chunks}</span>,
+              })}
+            </span>
+          </div>
+
           <FormField label={t("nameLabel")} required hint={nameValid ? t("nameHint") : t("nameInvalid")}>
             <TextInput value={name} onChange={setName} placeholder={t("namePlaceholder")} mono />
           </FormField>

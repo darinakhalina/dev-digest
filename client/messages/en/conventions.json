@@ -46,7 +46,7 @@
   },
   "modal": {
     "title": "Create skill from conventions",
-    "subtitle": "Merged from {count, plural, one {# accepted convention} other {# accepted conventions}} in {repo}. Everything below is editable before you save.",
+    "subtitle": "Merged from <b>{count, plural, one {# accepted convention} other {# accepted conventions}}</b> in <repoName>{repo}</repoName>. Everything below is editable before you save.",
     "loading": "Building the proposal…",
     "nameLabel": "Name",
     "namePlaceholder": "repo-conventions",
@@ -64,6 +64,7 @@
     "createdToast": "Created skill \"{name}\".",
     "failed": "Could not create the skill.",
     "bodyHint": "The only text sent to the model. Merged from the accepted rules + evidence — edit freely.",
-    "tokens": "{count} tokens"
+    "tokens": "{count} tokens",
+    "footerNote": "Saved as <v>v1</v> · added to Skills Lab"
   }
 }

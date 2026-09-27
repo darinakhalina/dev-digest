@@ -166,8 +166,7 @@ export function renderSkillBody(
   return [
     `# ${skillName}`,
     '',
-    `House conventions for \`${repoFullName}\`. Flag changes that violate any rule below and`,
-    'cite the offending `file:line`.',
+    `House conventions for \`${repoFullName}\`. Flag changes that violate any rule below and cite the offending \`file:line\`.`,
     '',
     sections.join('\n\n'),
     '',
