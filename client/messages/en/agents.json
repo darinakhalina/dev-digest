@@ -1,20 +1,24 @@
 {
   "card": {
     "noDescription": "No description",
-    "skillCount": "{count} skills"
+    "skillCount": "{count, plural, =0 {no skills} one {# skill} other {# skills}}",
+    "toggleLabel": "Enable {name}"
   },
   "list": {
     "breadcrumbLab": "Skills Lab",
     "breadcrumb": "Agents",
     "title": "Agents",
-    "subtitle": "User-created reviewers. Each = provider + model + system prompt + linked skills.",
     "searchPlaceholder": "Search agents…",
     "addAgent": "Add Agent",
     "createFromScratch": "Create from scratch",
     "loadError": "Could not load agents.",
     "emptyTitle": "No agents yet",
     "emptyBody": "An agent is a configured reviewer — a model, a prompt, and the skills it uses. Create one to start reviewing.",
-    "emptyCta": "Create your first agent"
+    "emptyCta": "Create your first agent",
+    "selectPrompt": {
+      "title": "Pick an agent",
+      "body": "Choose one from the list to change its model and prompt, or to attach skills."
+    }
   },
   "create": {
     "title": "Create agent",
@@ -34,21 +38,22 @@
       "systemPrompt": "System prompt"
     }
   },
+  "remove": {
+    "title": "Delete agent",
+    "label": "Delete {name}",
+    "body": "<name></name> will be permanently removed, along with its version history. This cannot be undone.",
+    "attached": "Its {count, plural, one {# skill stays} other {# skills stay}} in the workspace.",
+    "cancel": "Cancel",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "deletedToast": "Deleted “{name}”."
+  },
   "editor": {
-    "loadErrorTitle": "Couldn’t load this agent",
-    "loadErrorBody": "The agent could not be loaded.",
-    "agentFallback": "Agent",
-    "listTitle": "Agents",
-    "add": "Add",
-    "createFromScratch": "Create from scratch",
     "disabled": "disabled",
     "runOnPr": "Run on a PR…",
     "tabs": {
       "config": "Config",
-      "skills": "Skills",
-      "evals": "Evals",
-      "stats": "Stats",
-      "ci": "CI"
+      "skills": "Skills"
     }
   },
   "config": {
@@ -92,8 +97,5 @@
     "enabledCount": "{linked} of {total} enabled",
     "filterPlaceholder": "Filter skills…",
     "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Toggle to attach."
-  },
-  "mount": {
-    "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."
   }
 }

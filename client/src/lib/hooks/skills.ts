@@ -98,7 +98,12 @@ export function useSetAgentSkills() {
   return useMutation({
     mutationFn: ({ agentId, skillIds }: { agentId: string; skillIds: string[] }) =>
       api.post<AgentSkillLink[]>(`/agents/${agentId}/skills`, { skill_ids: skillIds }),
-    onSuccess: (_d, { agentId }) => qc.invalidateQueries({ queryKey: ["agent-skills", agentId] }),
+    onSuccess: (_d, { agentId }) => {
+      qc.invalidateQueries({ queryKey: ["agent-skills", agentId] });
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      qc.invalidateQueries({ queryKey: ["agent", agentId] });
+      qc.invalidateQueries({ queryKey: ["skills"] });
+    },
   });
 }
 

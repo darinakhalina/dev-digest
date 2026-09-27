@@ -3,16 +3,16 @@
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  Badge,
-  Button,
-  Dropdown,
-  EmptyState,
-  ErrorState,
-  Icon,
-  Skeleton,
-} from "@devdigest/ui";
+import { Badge, Button, Dropdown, EmptyState, ErrorState } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
+import {
+  DetailPane,
+  DetailPlaceholder,
+  DetailSkeleton,
+  Rail,
+  RailLayout,
+  RailListSkeleton,
+} from "@/components/rail-layout";
 import { useSkills, useUpdateSkill } from "@/lib/hooks/skills";
 import { CreateSkillModal } from "../CreateSkillModal";
 import { DeleteSkillModal } from "../DeleteSkillModal";
@@ -21,7 +21,6 @@ import { SkillRailCard } from "../SkillRailCard";
 import { SkillEditor } from "../SkillEditor";
 import { DEFAULT_TAB, VALID_TABS } from "./constants";
 import { filterSkills } from "./helpers";
-import { s } from "./styles";
 
 export function SkillsView({ selectedId }: { selectedId?: string }) {
   const t = useTranslations("skills");
@@ -80,99 +79,78 @@ export function SkillsView({ selectedId }: { selectedId?: string }) {
         />
       )}
 
-      <div style={s.split}>
-        <div style={s.rail}>
-          <div style={s.railHead}>
-            <div style={s.railTitleRow}>
-              <h1 style={s.railTitle}>{t("page.heading")}</h1>
-              <Dropdown
-                width={220}
-                align="right"
-                trigger={
-                  <Button kind="primary" size="sm" icon="Plus" iconRight="ChevronDown">
-                    {t("page.addSkill")}
-                  </Button>
-                }
-                items={[
-                  {
-                    label: t("page.menu.create"),
-                    icon: "Edit",
-                    onClick: () => setCreateOpen(true),
-                  },
-                  {
-                    label: t("page.menu.fromFile"),
-                    icon: "Upload",
-                    onClick: () => setImportOpen(true),
-                  },
-                ]}
-              />
-            </div>
-            <div style={s.search}>
-              <Icon.Search size={13} style={s.searchIcon} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("page.searchPlaceholder")}
-                aria-label={t("page.searchPlaceholder")}
-                style={s.searchInput}
-              />
-            </div>
-          </div>
-
-          <div style={s.railList}>
-            {isLoading && (
-              <div style={s.railSkeleton}>
-                <Skeleton height={104} />
-                <Skeleton height={104} />
-                <Skeleton height={104} />
-              </div>
-            )}
-            {isError && <ErrorState body={t("page.loadError")} onRetry={() => refetch()} />}
-            {!isLoading && !isError && list.length === 0 && (
-              <EmptyState icon="Sparkles" title={t("page.empty.title")} body={t("page.empty.body")} />
-            )}
-            {list.map((sk) => (
-              <SkillRailCard
-                key={sk.id}
-                skill={sk}
-                active={sk.id === selectedId}
-                onSelect={() => select(sk.id)}
-                onToggle={(enabled) => update.mutate({ id: sk.id, patch: { enabled } })}
-                onDelete={() => setPendingDelete(sk.id)}
-              />
-            ))}
-          </div>
-        </div>
+      <RailLayout>
+        <Rail
+          title={t("page.heading")}
+          search={query}
+          onSearch={setQuery}
+          searchPlaceholder={t("page.searchPlaceholder")}
+          action={
+            <Dropdown
+              width={220}
+              align="right"
+              trigger={
+                <Button kind="primary" size="sm" icon="Plus" iconRight="ChevronDown">
+                  {t("page.addSkill")}
+                </Button>
+              }
+              items={[
+                {
+                  label: t("page.menu.create"),
+                  icon: "Edit",
+                  onClick: () => setCreateOpen(true),
+                },
+                {
+                  label: t("page.menu.fromFile"),
+                  icon: "Upload",
+                  onClick: () => setImportOpen(true),
+                },
+              ]}
+            />
+          }
+        >
+          {isLoading && <RailListSkeleton />}
+          {isError && <ErrorState body={t("page.loadError")} onRetry={() => refetch()} />}
+          {!isLoading && !isError && list.length === 0 && (
+            <EmptyState icon="Sparkles" title={t("page.empty.title")} body={t("page.empty.body")} />
+          )}
+          {list.map((sk) => (
+            <SkillRailCard
+              key={sk.id}
+              skill={sk}
+              active={sk.id === selectedId}
+              onSelect={() => select(sk.id)}
+              onToggle={(enabled) => update.mutate({ id: sk.id, patch: { enabled } })}
+              onDelete={() => setPendingDelete(sk.id)}
+            />
+          ))}
+        </Rail>
 
         {!selectedId ? (
-          <div style={s.placeholder}>
+          <DetailPlaceholder>
             <EmptyState
               icon="Sparkles"
               title={t("page.selectPrompt.title")}
               body={t("page.selectPrompt.body")}
             />
-          </div>
+          </DetailPlaceholder>
         ) : isLoading || !skill ? (
-          <div style={s.editorSkeleton}>
-            <Skeleton height={24} width={240} />
-            <Skeleton height={200} />
-          </div>
+          <DetailSkeleton />
         ) : (
-          <div style={s.editorPane}>
-            <div style={s.editorHead}>
-              <Icon.Sparkles size={18} style={s.editorIcon} />
-              <h1 className="mono" style={s.editorTitle}>
-                {skill.name}
-              </h1>
+          <DetailPane
+            icon="Sparkles"
+            title={skill.name}
+            mono
+            badges={
               <Badge color="var(--text-muted)" mono>
                 v{skill.version}
               </Badge>
-              <span style={s.headSpacer} />
-            </div>
+            }
+          >
             <SkillEditor skill={skill} tab={tab} onTab={setTab} />
-          </div>
+          </DetailPane>
         )}
-      </div>
+      </RailLayout>
     </AppShell>
   );
 }

@@ -2,9 +2,10 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Icon, IconBtn, Toggle } from "@devdigest/ui";
+import { Badge } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
-import { TYPE_COLOR, s } from "./styles";
+import { RailCard } from "@/components/rail-card";
+import { skillTypeColor } from "@/lib/skill-type";
 
 export interface SkillRailCardProps {
   skill: Skill;
@@ -23,68 +24,37 @@ export function SkillRailCard({
 }: SkillRailCardProps) {
   const t = useTranslations("skills");
   const untrusted = skill.source !== "manual";
-  const agents = skill.agent_count ?? 0;
+  const type = skillTypeColor(skill.type);
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-current={active ? "true" : undefined}
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.target !== e.currentTarget) return;
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect();
-        }
-      }}
-      style={s.card(active, skill.enabled)}
-    >
-      <div style={s.headerRow}>
-        <span style={s.iconBox}>
-          <Icon.Sparkles size={15} />
-        </span>
-        <span className="mono" style={s.name}>
-          {skill.name}
-        </span>
-        <div onClick={(e) => e.stopPropagation()}>
-          <Toggle
-            on={skill.enabled}
-            onChange={onToggle}
-            size={16}
-            label={t("listItem.toggleLabel", { name: skill.name })}
-          />
-        </div>
-      </div>
-
-      <div style={s.description}>{skill.description || t("listItem.noDescription")}</div>
-
-      <div style={s.badgeRow}>
-        <Badge color={TYPE_COLOR[skill.type]} mono>
-          {t(`listItem.type.${skill.type}`)}
-        </Badge>
-        <Badge color="var(--text-muted)">{t(`listItem.source.${skill.source}`)}</Badge>
-        {untrusted && (
-          <span title={t("listItem.vettingTitle")}>
-            <Badge color="var(--warn)" bg="var(--warn-bg)" icon="AlertTriangle">
-              {t("listItem.needsVetting")}
-            </Badge>
-          </span>
-        )}
-      </div>
-
-      <div style={s.footer}>
-        <span style={s.agents}>{t("listItem.agents", { count: agents })}</span>
-        <span onClick={(e) => e.stopPropagation()}>
-          <IconBtn
-            icon="Trash"
-            label={t("remove.label", { name: skill.name })}
-            size={24}
-            danger
-            onClick={onDelete}
-          />
-        </span>
-      </div>
-    </div>
+    <RailCard
+      icon="Sparkles"
+      name={skill.name}
+      mono
+      description={skill.description || t("listItem.noDescription")}
+      active={active}
+      enabled={skill.enabled}
+      onSelect={onSelect}
+      onToggle={onToggle}
+      toggleLabel={t("listItem.toggleLabel", { name: skill.name })}
+      onDelete={onDelete}
+      deleteLabel={t("remove.label", { name: skill.name })}
+      badges={
+        <>
+          <Badge color={type.fg} bg={type.bg} mono>
+            {t(`listItem.type.${skill.type}`)}
+          </Badge>
+          <Badge color="var(--text-muted)">{t(`listItem.source.${skill.source}`)}</Badge>
+          {untrusted && (
+            <span title={t("listItem.vettingTitle")}>
+              <Badge color="var(--warn)" bg="var(--warn-bg)" icon="AlertTriangle">
+                {t("listItem.needsVetting")}
+              </Badge>
+            </span>
+          )}
+        </>
+      }
+      footer={t("listItem.agents", { count: skill.agent_count ?? 0 })}
+    />
   );
 }
