@@ -1,7 +1,7 @@
-import type { Skill, SkillImportPreview } from '@devdigest/shared';
+import type { Skill, SkillImportPreview, SkillVersion } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import type { SkillsRepository } from './repository.js';
-import { toSkillDto } from './helpers.js';
+import { toSkillDto, toSkillVersionDto } from './helpers.js';
 import { parseSkillImport } from './domain.js';
 import { DEFAULT_SKILL_SOURCE, DEFAULT_SKILL_TYPE, MAX_IMPORT_BYTES } from './constants.js';
 import { ValidationError } from '../../platform/errors.js';
@@ -19,12 +19,22 @@ export class SkillsService implements SkillAuthoring {
 
   async list(workspaceId: string): Promise<Skill[]> {
     const rows = await this.repo.list(workspaceId);
-    return rows.map(toSkillDto);
+    const counts = await this.repo.agentCounts(rows.map((r) => r.id));
+    return rows.map((row) => toSkillDto(row, counts.get(row.id) ?? 0));
   }
 
   async get(workspaceId: string, id: string): Promise<Skill | undefined> {
     const row = await this.repo.getById(workspaceId, id);
-    return row ? toSkillDto(row) : undefined;
+    if (!row) return undefined;
+    const counts = await this.repo.agentCounts([row.id]);
+    return toSkillDto(row, counts.get(row.id) ?? 0);
+  }
+
+  async versions(workspaceId: string, id: string): Promise<SkillVersion[] | undefined> {
+    const row = await this.repo.getById(workspaceId, id);
+    if (!row) return undefined;
+    const rows = await this.repo.versions(row.id);
+    return rows.map(toSkillVersionDto);
   }
 
   async create(workspaceId: string, input: CreateSkillInput): Promise<Skill> {
@@ -48,6 +58,24 @@ export class SkillsService implements SkillAuthoring {
   ): Promise<Skill | undefined> {
     const row = await this.repo.update(workspaceId, id, patch);
     return row ? toSkillDto(row) : undefined;
+  }
+
+  async restore(workspaceId: string, id: string, version: number): Promise<Skill | undefined> {
+    const row = await this.repo.getById(workspaceId, id);
+    if (!row) return undefined;
+
+    const body = await this.repo.versionBody(row.id, version);
+    if (body === undefined) {
+      throw new ValidationError('That version does not exist for this skill', {
+        field: 'version',
+        version,
+      });
+    }
+
+    const updated = await this.repo.update(workspaceId, id, { body });
+    if (!updated) return undefined;
+    const counts = await this.repo.agentCounts([updated.id]);
+    return toSkillDto(updated, counts.get(updated.id) ?? 0);
   }
 
   async delete(workspaceId: string, id: string): Promise<boolean> {

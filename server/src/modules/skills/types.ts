@@ -1,4 +1,10 @@
-import type { Skill, SkillImportPreview, SkillSource, SkillType } from '@devdigest/shared';
+import type {
+  Skill,
+  SkillImportPreview,
+  SkillSource,
+  SkillType,
+  SkillVersion,
+} from '@devdigest/shared';
 
 export interface CreateSkillInput {
   name: string;
@@ -29,5 +35,7 @@ export interface SkillAuthoring {
     patch: UpdateSkillInput,
   ): Promise<Skill | undefined>;
   delete(workspaceId: string, id: string): Promise<boolean>;
+  versions(workspaceId: string, id: string): Promise<SkillVersion[] | undefined>;
+  restore(workspaceId: string, id: string, version: number): Promise<Skill | undefined>;
   importPreview(filename: string, contentBase64: string): SkillImportPreview;
 }

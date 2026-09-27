@@ -1,9 +1,10 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import type { SkillSource, SkillType } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 
 export type SkillRow = typeof t.skills.$inferSelect;
+export type SkillVersionRow = typeof t.skillVersions.$inferSelect;
 
 export interface InsertSkill {
   workspaceId: string;
@@ -34,6 +35,32 @@ export class SkillsRepository {
       .from(t.skills)
       .where(eq(t.skills.workspaceId, workspaceId))
       .orderBy(t.skills.createdAt);
+  }
+
+  async agentCounts(skillIds: string[]): Promise<Map<string, number>> {
+    if (skillIds.length === 0) return new Map();
+    const rows = await this.db
+      .select({ skillId: t.agentSkills.skillId, n: count() })
+      .from(t.agentSkills)
+      .where(inArray(t.agentSkills.skillId, skillIds))
+      .groupBy(t.agentSkills.skillId);
+    return new Map(rows.map((r) => [r.skillId, Number(r.n)]));
+  }
+
+  async versionBody(skillId: string, version: number): Promise<string | undefined> {
+    const [row] = await this.db
+      .select({ body: t.skillVersions.body })
+      .from(t.skillVersions)
+      .where(and(eq(t.skillVersions.skillId, skillId), eq(t.skillVersions.version, version)));
+    return row?.body;
+  }
+
+  async versions(skillId: string): Promise<SkillVersionRow[]> {
+    return this.db
+      .select()
+      .from(t.skillVersions)
+      .where(eq(t.skillVersions.skillId, skillId))
+      .orderBy(asc(t.skillVersions.version));
   }
 
   async getById(workspaceId: string, id: string): Promise<SkillRow | undefined> {

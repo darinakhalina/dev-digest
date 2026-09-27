@@ -25,6 +25,10 @@ const UpdateSkillBody = z.object({
   enabled: z.boolean().optional(),
 });
 
+const RestoreSkillBody = z.object({
+  version: z.number().int().positive(),
+});
+
 const ImportSkillBody = z.object({
   filename: z.string().min(1),
   content_base64: z.string().min(1),
@@ -65,6 +69,24 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     if (!skill) throw new NotFoundError('Skill not found');
     return skill;
   });
+
+  app.get('/skills/:id/versions', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    const versions = await service.versions(workspaceId, req.params.id);
+    if (!versions) throw new NotFoundError('Skill not found');
+    return versions;
+  });
+
+  app.post(
+    '/skills/:id/restore',
+    { schema: { params: IdParams, body: RestoreSkillBody } },
+    async (req) => {
+      const { workspaceId } = await getContext(app.container, req);
+      const skill = await service.restore(workspaceId, req.params.id, req.body.version);
+      if (!skill) throw new NotFoundError('Skill not found');
+      return skill;
+    },
+  );
 
   app.put('/skills/:id', { schema: { params: IdParams, body: UpdateSkillBody } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);
