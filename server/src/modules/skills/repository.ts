@@ -37,12 +37,15 @@ export class SkillsRepository {
       .orderBy(t.skills.createdAt);
   }
 
-  async agentCounts(skillIds: string[]): Promise<Map<string, number>> {
+  async agentCounts(workspaceId: string, skillIds: string[]): Promise<Map<string, number>> {
     if (skillIds.length === 0) return new Map();
     const rows = await this.db
       .select({ skillId: t.agentSkills.skillId, n: count() })
       .from(t.agentSkills)
-      .where(inArray(t.agentSkills.skillId, skillIds))
+      .innerJoin(t.agents, eq(t.agents.id, t.agentSkills.agentId))
+      .where(
+        and(eq(t.agents.workspaceId, workspaceId), inArray(t.agentSkills.skillId, skillIds)),
+      )
       .groupBy(t.agentSkills.skillId);
     return new Map(rows.map((r) => [r.skillId, Number(r.n)]));
   }

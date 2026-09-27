@@ -19,14 +19,14 @@ export class SkillsService implements SkillAuthoring {
 
   async list(workspaceId: string): Promise<Skill[]> {
     const rows = await this.repo.list(workspaceId);
-    const counts = await this.repo.agentCounts(rows.map((r) => r.id));
+    const counts = await this.repo.agentCounts(workspaceId, rows.map((r) => r.id));
     return rows.map((row) => toSkillDto(row, counts.get(row.id) ?? 0));
   }
 
   async get(workspaceId: string, id: string): Promise<Skill | undefined> {
     const row = await this.repo.getById(workspaceId, id);
     if (!row) return undefined;
-    const counts = await this.repo.agentCounts([row.id]);
+    const counts = await this.repo.agentCounts(workspaceId, [row.id]);
     return toSkillDto(row, counts.get(row.id) ?? 0);
   }
 
@@ -74,7 +74,7 @@ export class SkillsService implements SkillAuthoring {
 
     const updated = await this.repo.update(workspaceId, id, { body });
     if (!updated) return undefined;
-    const counts = await this.repo.agentCounts([updated.id]);
+    const counts = await this.repo.agentCounts(workspaceId, [updated.id]);
     return toSkillDto(updated, counts.get(updated.id) ?? 0);
   }
 
