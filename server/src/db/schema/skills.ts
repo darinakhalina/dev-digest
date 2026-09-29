@@ -8,7 +8,9 @@ import {
   timestamp,
   index,
   primaryKey,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { now } from './_shared';
 import { users, workspaces } from './core';
 import type { ImportSignal } from '../../vendor/shared/contracts/knowledge';
@@ -45,7 +47,10 @@ export const skills = pgTable(
   },
   (t) => ({
     wsIdx: index('skills_ws_idx').on(t.workspaceId),
-    threatIdx: index('skills_threat_idx').on(t.workspaceId, t.threatLevel),
+    threatLevelChk: check(
+      'skills_threat_level_chk',
+      sql`${t.threatLevel} in ('unknown', 'safe', 'suspicious', 'dangerous')`,
+    ),
   }),
 );
 

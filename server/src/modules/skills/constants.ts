@@ -30,6 +30,7 @@ export const IMPORT_URL_MAX_BYTES = 1 * 1024 * 1024;
 export const IMPORT_URL_TIMEOUT_MS = 10_000;
 
 export const SCAN_MAX_PROMPT_CHARS = 8000;
+export const MAX_SKILL_BODY_CHARS = 64_000;
 
 export const SCAN_ATTEMPT_TIMEOUT_MS = 8_000;
 

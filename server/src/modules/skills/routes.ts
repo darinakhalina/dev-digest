@@ -6,13 +6,14 @@ import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
 import { SkillsService } from './service.js';
+import { MAX_SKILL_BODY_CHARS } from './constants.js';
 
 const CreateSkillBody = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   type: SkillType.optional(),
   source: SkillSource.optional(),
-  body: z.string().min(1),
+  body: z.string().min(1).max(MAX_SKILL_BODY_CHARS),
   enabled: z.boolean().optional(),
 });
 
@@ -21,7 +22,7 @@ const UpdateSkillBody = z.object({
   description: z.string().optional(),
   type: SkillType.optional(),
   source: SkillSource.optional(),
-  body: z.string().min(1).optional(),
+  body: z.string().min(1).max(MAX_SKILL_BODY_CHARS).optional(),
   enabled: z.boolean().optional(),
 });
 

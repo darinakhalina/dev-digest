@@ -7,6 +7,7 @@ import {
   parseSkillImport,
   refusalMessage,
   resolveImportUrl,
+  scanSkillBody,
   worseThreat,
 } from './domain.js';
 import { classifySkillBody, type ModelVerdict } from './scanner.js';
@@ -74,13 +75,25 @@ export class SkillsService implements SkillAuthoring {
     id: string,
     patch: UpdateSkillInput,
   ): Promise<Skill | undefined> {
-    if (patch.enabled === true && patch.body === undefined) {
-      const existing = await this.repo.getById(workspaceId, id);
-      if (!existing) return undefined;
-      assertUsable(existing);
-    }
     const verdict =
       patch.body === undefined ? null : await this.classify(workspaceId, patch.body);
+
+    if (patch.enabled === true) {
+      const existing = await this.repo.getById(workspaceId, id);
+      if (!existing) return undefined;
+      const bodyChanged = patch.body !== undefined && patch.body !== existing.body;
+      assertUsable(
+        bodyChanged
+          ? {
+              threatLevel: worseThreat(
+                scanSkillBody(patch.body!).level,
+                verdict?.level ?? 'unknown',
+              ),
+              threatAcceptedAt: null,
+            }
+          : existing,
+      );
+    }
     const row = await this.repo.update(workspaceId, id, {
       ...patch,
       ...(verdict ? { modelLevel: verdict.level, modelReason: verdict.reason } : {}),
@@ -120,6 +133,8 @@ export class SkillsService implements SkillAuthoring {
       maxRedirects: IMPORT_URL_MAX_REDIRECTS,
       timeoutMs: IMPORT_URL_TIMEOUT_MS,
     });
+
+    assertTextDocument(document.contentType);
 
     return this.withModelVerdict(
       workspaceId,
@@ -198,4 +213,16 @@ function decodeBase64(contentBase64: string): Uint8Array {
 
 function base64LengthFor(bytes: number): number {
   return Math.ceil(bytes / 3) * 4 + 4;
+}
+
+const TEXT_MEDIA_TYPES = new Set(['text/plain', 'text/markdown', 'text/x-markdown']);
+
+function assertTextDocument(contentType: string | null | undefined): void {
+  if (contentType === null || contentType === undefined) return;
+  const mediaType = contentType.split(';')[0]!.trim().toLowerCase();
+  if (mediaType === '' || TEXT_MEDIA_TYPES.has(mediaType)) return;
+  throw new ValidationError(
+    `That address answered with ${mediaType}, not a Markdown or plain-text document.`,
+    { field: 'url', rule: 'content_type' },
+  );
 }

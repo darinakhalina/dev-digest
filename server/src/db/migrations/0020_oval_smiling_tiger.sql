@@ -1,0 +1,1 @@
+ALTER TABLE "skills" ADD CONSTRAINT "skills_threat_level_chk" CHECK ("skills"."threat_level" in ('unknown', 'safe', 'suspicious', 'dangerous'));

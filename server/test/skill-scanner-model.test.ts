@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { LLMProvider } from '@devdigest/shared';
 import { buildSkillScanPrompt, classifySkillBody } from '../src/modules/skills/scanner.js';
 import { scanSkillBody, worseThreat } from '../src/modules/skills/domain.js';
+import { MockLLMProvider } from '../src/adapters/mocks.js';
 
 function fakeLlm(impl: () => Promise<unknown>): LLMProvider {
   return { completeStructured: vi.fn(impl) } as unknown as LLMProvider;
@@ -44,8 +45,8 @@ describe('classifySkillBody', () => {
   });
 
   it('returns null when the model answers something off-schema', async () => {
-    const llm = fakeLlm(async () => {
-      throw new Error('schema mismatch');
+    const llm = new MockLLMProvider('openai', {
+      structuredBySchema: { SkillSafetyScan: { threat_level: 'totally-fine' } },
     });
     expect(await classifySkillBody('body', llm, 'm')).toBeNull();
   });

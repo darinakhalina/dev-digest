@@ -62,6 +62,12 @@ async function assertReachableTarget(url: string, limits: DocumentFetchLimits): 
   if (parsed.protocol !== 'https:') {
     throw new DocumentFetchRefused('scheme_not_https', 'Only https:// addresses can be fetched.');
   }
+  if (parsed.username || parsed.password) {
+    throw new DocumentFetchRefused(
+      'credentials_in_url',
+      'An address carrying a username or password was refused.',
+    );
+  }
   if (!limits.allowHost(parsed.hostname)) {
     throw new DocumentFetchRefused('host_not_allowed', 'That host is not one this server may fetch from.');
   }

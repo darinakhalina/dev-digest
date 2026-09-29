@@ -19,7 +19,7 @@ import { DeleteSkillModal } from "../DeleteSkillModal";
 import { SkillRailCard } from "../SkillRailCard";
 import { SkillEditor } from "../SkillEditor";
 import { ThreatBadge, ThreatBanner } from "../ThreatBanner";
-import type { AddTab } from "../AddSkillModal/constants";
+import type { AddTab } from "../AddSkillModal";
 import { DEFAULT_TAB, VALID_TABS } from "./constants";
 import { filterSkills } from "./helpers";
 

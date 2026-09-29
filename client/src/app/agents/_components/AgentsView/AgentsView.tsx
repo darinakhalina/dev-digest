@@ -62,7 +62,7 @@ export function AgentsView({ selectedId }: { selectedId?: string }) {
           onClose={() => setCreateOpen(false)}
           onCreated={(created) => {
             setCreateOpen(false);
-            router.push(`/agents/${created.id}?tab=config`);
+            router.push(`/agents/${created.id}?tab=${DEFAULT_TAB}`);
           }}
         />
       )}
@@ -134,8 +134,12 @@ export function AgentsView({ selectedId }: { selectedId?: string }) {
               body={t("list.selectPrompt.body")}
             />
           </DetailPlaceholder>
-        ) : isLoading || !agent ? (
+        ) : isLoading ? (
           <DetailSkeleton />
+        ) : !agent ? (
+          <DetailPlaceholder>
+            <ErrorState body={t("list.loadError")} onRetry={() => refetch()} />
+          </DetailPlaceholder>
         ) : (
           <DetailPane
             icon="Cpu"

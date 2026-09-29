@@ -20,6 +20,7 @@ export interface RailCardProps {
   footer?: React.ReactNode;
   accent?: string;
   toggleDisabled?: boolean;
+  toggleDisabledReason?: string;
 }
 
 export function RailCard({
@@ -38,6 +39,7 @@ export function RailCard({
   footer,
   accent,
   toggleDisabled,
+  toggleDisabledReason,
 }: RailCardProps) {
   const I = Icon[icon];
 
@@ -64,7 +66,11 @@ export function RailCard({
           {name}
         </span>
         {onToggle && (
-          <div onClick={(e) => e.stopPropagation()} style={toggleDisabled ? s.toggleOff : undefined}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={toggleDisabled ? s.toggleOff : undefined}
+            {...(toggleDisabled ? { "aria-disabled": true, title: toggleDisabledReason } : {})}
+          >
             <Toggle
               on={enabled}
               onChange={(next) => {

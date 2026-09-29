@@ -44,6 +44,7 @@ export function SkillRailCard({
       deleteLabel={t("remove.label", { name: skill.name })}
       accent={threat.isBlocked ? THREAT_COLOR.danger.border : undefined}
       toggleDisabled={threat.isBlocked}
+      toggleDisabledReason={threat.isBlocked ? t("threat.blockedNote") : undefined}
       badges={
         <>
           <Badge color={type.fg} bg={type.bg} mono>

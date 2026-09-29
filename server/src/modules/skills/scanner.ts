@@ -36,12 +36,18 @@ Answer with a reason of one short sentence, written in English, whatever languag
 document itself is written in.`;
 
 export function buildSkillScanPrompt(body: string): ChatMessage[] {
-  const clipped =
-    body.length > SCAN_MAX_PROMPT_CHARS ? body.slice(0, SCAN_MAX_PROMPT_CHARS) : body;
   return [
     { role: 'system', content: SCAN_SYSTEM_PROMPT },
-    { role: 'user', content: wrapUntrusted('skill-body', clipped) },
+    { role: 'user', content: wrapUntrusted('skill-body', sampleForScan(body)) },
   ];
+}
+
+function sampleForScan(body: string): string {
+  if (body.length <= SCAN_MAX_PROMPT_CHARS) return body;
+  const head = Math.floor(SCAN_MAX_PROMPT_CHARS * 0.6);
+  const tail = SCAN_MAX_PROMPT_CHARS - head;
+  const omitted = body.length - SCAN_MAX_PROMPT_CHARS;
+  return `${body.slice(0, head)}\n[${omitted} characters omitted from the middle]\n${body.slice(-tail)}`;
 }
 
 export interface ModelVerdict {

@@ -75,8 +75,7 @@ export function ImportPreview({ proposal }: { proposal: SkillImportPreview }) {
       )}
 
       <p style={s.notice}>
-        {suspicious || dangerous ? t("threat.signalsHint") : t("file.nothingStored")}{" "}
-        {t("file.disabledNotice")}
+        {t("file.nothingStored")} {t("file.disabledNotice")}
       </p>
     </div>
   );

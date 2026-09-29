@@ -321,7 +321,36 @@ function matchesIn(
     }
   }
 
+  const joined = lines.join(' ');
+  const lineStarts: number[] = [];
+  let offset = 0;
+  for (const line of lines) {
+    lineStarts.push(offset);
+    offset += line.length + 1;
+  }
+
+  for (const { rule, pattern } of patterns) {
+    if (signals.length >= MAX_SIGNALS) return signals;
+    const match = pattern.exec(joined);
+    pattern.lastIndex = 0;
+    if (!match) continue;
+    const index = lineIndexAt(lineStarts, match.index);
+    if (seen.has(`${rule}:${index}`)) continue;
+    seen.add(`${rule}:${index}`);
+    signals.push({
+      rule,
+      line: index + 1,
+      excerpt: excerptOf(joined.slice(match.index, match.index + EXCERPT_CHARS)),
+    });
+  }
+
   return signals;
+}
+
+function lineIndexAt(lineStarts: number[], offset: number): number {
+  let index = 0;
+  while (index + 1 < lineStarts.length && lineStarts[index + 1]! <= offset) index += 1;
+  return index;
 }
 
 function excerptOf(line: string): string {

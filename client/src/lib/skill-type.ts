@@ -13,5 +13,5 @@ const SKILL_TYPE_COLOR: Record<SkillType, SkillTypeColor> = {
 };
 
 export function skillTypeColor(type: SkillType): SkillTypeColor {
-  return SKILL_TYPE_COLOR[type] ?? { fg: "var(--text-secondary)", bg: "var(--bg-hover)" };
+  return SKILL_TYPE_COLOR[type];
 }

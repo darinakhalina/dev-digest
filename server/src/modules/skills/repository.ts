@@ -161,6 +161,10 @@ export class SkillsRepository {
                 threatReason: patch.modelReason ?? null,
                 threatAcceptedAt: null,
                 threatAcceptedBy: null,
+                enabled:
+                  rescanLevel === 'dangerous'
+                    ? false
+                    : (patch.enabled ?? existing.enabled),
               }
             : {}),
         })
