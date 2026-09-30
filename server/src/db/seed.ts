@@ -6,7 +6,9 @@ import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
+  API_CONTRACT_REVIEWER_PROMPT,
 } from './seed-prompts.js';
+import { SEED_SKILLS, SEED_AGENT_SKILLS } from './seed-skills.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -211,6 +213,18 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       version: 1,
       createdBy: userId,
     },
+    {
+      workspaceId,
+      name: 'API Contract Reviewer',
+      description:
+        'Checks whether a change breaks a published contract a caller still depends on.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: API_CONTRACT_REVIEWER_PROMPT,
+      enabled: true,
+      version: 1,
+      createdBy: userId,
+    },
   ];
   for (const a of seedAgents) {
     const [existing] = await db
@@ -218,6 +232,45 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
     if (!existing) await db.insert(t.agents).values(a);
+  }
+
+  const skillIdByName = new Map<string, string>();
+  for (const skill of SEED_SKILLS) {
+    const [existing] = await db
+      .select()
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, skill.name)));
+    if (existing) {
+      skillIdByName.set(skill.name, existing.id);
+      continue;
+    }
+    const [row] = await db
+      .insert(t.skills)
+      .values({ workspaceId, ...skill, version: 1 })
+      .returning();
+    await db
+      .insert(t.skillVersions)
+      .values({ skillId: row!.id, version: 1, body: row!.body });
+    skillIdByName.set(skill.name, row!.id);
+  }
+
+  for (const [agentName, skillNames] of Object.entries(SEED_AGENT_SKILLS)) {
+    const [agent] = await db
+      .select()
+      .from(t.agents)
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, agentName)));
+    if (!agent) continue;
+    for (const [order, skillName] of skillNames.entries()) {
+      const skillId = skillIdByName.get(skillName);
+      if (!skillId) continue;
+      const [linked] = await db
+        .select()
+        .from(t.agentSkills)
+        .where(and(eq(t.agentSkills.agentId, agent.id), eq(t.agentSkills.skillId, skillId)));
+      if (!linked) {
+        await db.insert(t.agentSkills).values({ agentId: agent.id, skillId, order });
+      }
+    }
   }
 
   return { workspaceId, userId };

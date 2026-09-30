@@ -32,9 +32,10 @@ were not.
 ## Non-goals
 
 - Executing anything a skill or an import carries. A skill is text and only text.
-- Fetching skills from a URL or a community catalogue. The shipped strings anticipate both; both
-  are out of scope here, because a server-side fetch of a user-supplied address needs controls
-  this feature does not have.
+- Fetching skills from a community catalogue. The shipped strings anticipate it; it stays out of
+  scope. Fetching from a URL was out of scope in the first revision of this document, for the
+  reason that a server-side fetch of a user-supplied address needs controls the feature did not
+  have; AC-27 to AC-32 are those controls, and the fetch is now in scope.
 - Version history, usage statistics and evaluations for a skill. The `skill_versions` table exists
   and stays unused; adding it later must not require changing anything specified here.
 - Changing how findings, grounding or scoring work.
@@ -143,6 +144,35 @@ were not.
   SHALL report at least one finding about an uncovered branch or a boundary case that the same
   agent WITHOUT its skills does not report.
   *Check:* run both ways on the same pull request and compare the finding lists.
+
+### Import from a URL
+
+The danger here is not the document — it is the request. A server that fetches an address a user
+typed will, unless stopped, fetch addresses only the server can reach: its own loopback, the
+database, a cloud metadata endpoint. Every criterion below exists to make that impossible, and
+they constrain the REQUEST, not the response.
+
+- **AC-24** — The system SHALL fetch only from a fixed set of declared hosts over HTTPS, and SHALL
+  refuse every other address without issuing a request.
+  *Check:* a URL on an undeclared host is refused, and no outbound request is recorded for it.
+- **AC-25** — The refusal in AC-24 SHALL apply to each address in a redirect chain, not only to the
+  address the user supplied.
+  *Check:* a declared host that redirects to an undeclared one is refused at the redirect.
+- **AC-26** — The system SHALL bound a fetch by a number of redirects, a response size and a wall
+  clock deadline, and SHALL refuse rather than wait or grow past any of them.
+  *Check:* an address that never responds is refused within the deadline; a response larger than
+  the limit is refused without being held whole in memory.
+- **AC-27** — A fetched document SHALL be treated exactly as an offered file: parsed into a
+  proposal, stored nowhere until confirmed, and subject to AC-16 and AC-18 to AC-21.
+  *Check:* fetch a document, then cancel; nothing appears in the skills list.
+- **AC-28** — WHEN a fetched import is confirmed, the stored skill SHALL be marked as coming from a
+  URL, and SHALL be disabled and flagged as untrusted exactly as a file import is.
+  *Check:* directly after the import the skill is listed, visibly flagged, disabled, and its
+  source is distinguishable from a file import.
+- **AC-29** — WHEN a fetch is refused, the system SHALL say which rule refused it, and SHALL NOT
+  reveal anything it learned about an address it declined to reach.
+  *Check:* refusing a loopback address names the rule and reports nothing about whether a service
+  was listening.
 
 ## Edge cases
 

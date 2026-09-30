@@ -9,7 +9,8 @@
     "menu": {
       "fromFile": "Import from file",
       "fromUrl": "Import from URL",
-      "community": "Search community skills…"
+      "community": "Search community skills…",
+      "create": "Create from scratch"
     },
     "empty": {
       "title": "No skills yet",
@@ -17,8 +18,8 @@
       "cta": "Import from file"
     },
     "selectPrompt": {
-      "title": "Select a skill",
-      "body": "Pick a skill on the left to preview its body."
+      "title": "Pick a skill",
+      "body": "Choose one from the list to read it, edit it, or look at how it changed."
     }
   },
   "detail": {
@@ -67,12 +68,15 @@
     "confirm": "Confirm import"
   },
   "url": {
-    "label": "Skill URL",
-    "hint": "Fetched server-side, stored as untrusted, and left disabled until vetted.",
-    "placeholder": "https://example.com/skills/security.md",
+    "label": "URL (https:// only)",
+    "placeholder": "https://raw.githubusercontent.com/org/repo/main/skill.md",
+    "hint": "Only GitHub raw and gist addresses are fetched, over https, with redirects checked at every hop.",
+    "fetch": "Fetch",
     "fetching": "Fetching…",
-    "import": "Import from URL",
-    "success": "Imported \"{name}\". Disabled until you vet + enable it."
+    "confirm": "Import from URL",
+    "importing": "Importing…",
+    "success": "Imported “{name}” from URL. It is disabled until you vet it.",
+    "failed": "Could not import from that address."
   },
   "community": {
     "searchPlaceholder": "Search community skills (e.g. security)…",
@@ -104,7 +108,8 @@
       "extracted": "Extracted",
       "community": "Community",
       "imported_url": "Imported"
-    }
+    },
+    "agents": "{count, plural, =0 {not attached} one {# agent} other {# agents}}"
   },
   "preview": {
     "untrustedBadge": "untrusted source",
@@ -116,7 +121,10 @@
     "bodyLabel": "Skill body (Markdown)",
     "bodyHint": "Saving a changed body creates a new immutable version.",
     "descriptionLabel": "Description",
-    "version": "v{version}"
+    "version": "v{version}",
+    "title": "Preview",
+    "hint": "Rendered as the reviewing agent receives it.",
+    "disabledNotice": "This skill is disabled, so it reaches no prompt right now."
   },
   "editor": {
     "title": "Configuration",
@@ -129,7 +137,12 @@
     "enabled": "Enabled",
     "save": "Save skill",
     "saving": "Saving…",
-    "savedToast": "Skill saved."
+    "savedToast": "Skill saved.",
+    "tabs": {
+      "config": "Config",
+      "preview": "Preview",
+      "versions": "Versions"
+    }
   },
   "agentTab": {
     "attached": "Attached — in prompt order",
@@ -141,5 +154,86 @@
     "moveUp": "Move {name} earlier in the prompt",
     "moveDown": "Move {name} later in the prompt",
     "disabledHint": "Disabled workspace-wide — attached here, but sent to no model."
+  },
+  "versions": {
+    "title": "Version history",
+    "count": "{count, plural, one {# version} other {# versions}}",
+    "hint": "Every change to the body is snapshotted, so a past run can be compared against the exact text it scored.",
+    "current": "current",
+    "comparing": "v{from} → v{to}",
+    "firstVersion": "v{version} — the first one, nothing to compare against",
+    "noChange": "The body is identical to the previous version.",
+    "restore": "Restore",
+    "restoreConfirm": "Restore the body of v{version}? The current body is kept as its own version — nothing is lost.",
+    "restoredToast": "Restored v{version} as v{created}.",
+    "empty": "No versions yet",
+    "loadError": "Could not load the version history."
+  },
+  "create": {
+    "title": "Create a skill",
+    "subtitle": "A skill is instructions to a reviewer — text, and only text.",
+    "name": "Name",
+    "namePlaceholder": "no-then-chains",
+    "nameHint": "A slug — lowercase letters, digits and dashes.",
+    "nameInvalid": "Use lowercase letters, digits and dashes, e.g. no-then-chains.",
+    "description": "Description",
+    "descriptionPlaceholder": "What this skill checks…",
+    "descriptionHint": "What it is for and when it applies — this is the skill’s interface.",
+    "type": "Type",
+    "body": "Instructions",
+    "bodyPlaceholder": "# Rule\n\nState the rule, then show a good and a bad example.",
+    "bodyHint": "The only text sent to the model. Everything else is metadata.",
+    "cancel": "Cancel",
+    "save": "Create skill",
+    "saving": "Creating…",
+    "createdToast": "Created skill \"{name}\"."
+  },
+  "remove": {
+    "title": "Delete skill",
+    "label": "Delete {name}",
+    "body": "<name></name> will be permanently removed. This cannot be undone.",
+    "attached": "It is attached to {count, plural, one {# agent} other {# agents}}, and will be removed from {count, plural, one {it} other {them}} too.",
+    "cancel": "Cancel",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "deletedToast": "Deleted \"{name}\"."
+  },
+  "add": {
+    "title": "Add skill",
+    "tabs": {
+      "create": "Create",
+      "file": "From file",
+      "url": "Import from URL"
+    }
+  },
+  "threat": {
+    "bannerTitle": "INJECTION DETECTED — DO NOT ENABLE",
+    "bannerBody": "This skill contains prompt-injection patterns. It cannot be enabled, attached to an agent, or sent to any model until you edit it or accept the risk below.",
+    "bannerAcceptedTitle": "ACCEPTED — POTENTIALLY UNSAFE",
+    "bannerAcceptedBody": "Someone accepted the risk on this skill, so it may be used. Its instructions still reach the model as untrusted text.",
+    "badgeDangerous": "Injection detected",
+    "badgeAccepted": "Accepted — unsafe",
+    "badgeSuspicious": "Suspicious",
+    "blockedNote": "blocked — injection detected",
+    "acceptLabel": "I have read the body and accept that this skill is dangerous and unsafe. Let agents use it anyway.",
+    "acceptButton": "Accept the risk",
+    "accepting": "Accepting…",
+    "acceptedToast": "Risk accepted for “{name}”. It stays marked as unsafe.",
+    "acceptedOn": "Risk accepted {date}.",
+    "attachBlocked": "Flagged for prompt injection — cannot be attached",
+    "signalsTitle": "{count, plural, one {# flagged line} other {# flagged lines}}",
+    "signalsHint": "Pattern matching is not proof. Read the body itself before deciding.",
+    "rule": {
+      "instruction_override": "Tries to override earlier instructions",
+      "role_hijack": "Tries to change the reviewer's role",
+      "verdict_rigging": "Tries to force a verdict or score",
+      "finding_suppression": "Tries to suppress findings",
+      "delimiter_escape": "Tries to break out of the untrusted block",
+      "secret_request": "Asks for secrets or environment values",
+      "exfiltration": "Points data at an outside address",
+      "shell_block": "Carries a shell command block",
+      "hidden_characters": "Contains invisible characters"
+    },
+    "modelReason": "No pattern matched, but the safety classifier flagged it: {reason}"
   }
 }

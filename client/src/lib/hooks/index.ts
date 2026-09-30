@@ -45,6 +45,8 @@ export {
   useUpdateSkill,
   useDeleteSkill,
   useImportSkillPreview,
+  useSkillVersions,
+  useRestoreSkillVersion,
   useAgentSkills,
   useSetAgentSkills,
   type CreateSkillInput,
@@ -57,3 +59,14 @@ export {
   useResyncRepoIntel,
   type RepoIntelState,
 } from "./repo-intel";
+export {
+  useConventions,
+  useExtractConventions,
+  useUpdateConvention,
+  useSkillProposal,
+  useCreateSkillFromConventions,
+  conventionsKey,
+  type UpdateConventionInput,
+  type SkillProposalInput,
+  type CreateSkillFromConventionsInput,
+} from "./conventions";

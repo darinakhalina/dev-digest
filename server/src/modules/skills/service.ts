@@ -1,48 +1,63 @@
-import type { Skill, SkillImportPreview, SkillSource, SkillType } from '@devdigest/shared';
+import type { Skill, SkillImportPreview, SkillThreatLevel, SkillVersion } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import type { SkillsRepository } from './repository.js';
-import { toSkillDto } from './helpers.js';
-import { parseSkillImport } from './domain.js';
-import { DEFAULT_SKILL_SOURCE, DEFAULT_SKILL_TYPE, MAX_IMPORT_BYTES } from './constants.js';
+import { toSkillDto, toSkillVersionDto } from './helpers.js';
+import {
+  isBlockedFromModel,
+  parseSkillImport,
+  refusalMessage,
+  resolveImportUrl,
+  scanSkillBody,
+  worseThreat,
+} from './domain.js';
+import { classifySkillBody, type ModelVerdict } from './scanner.js';
+import {
+  DEFAULT_SKILL_SOURCE,
+  DEFAULT_SKILL_TYPE,
+  SCAN_DEADLINE_MS,
+  IMPORT_URL_MAX_BYTES,
+  IMPORT_URL_MAX_REDIRECTS,
+  IMPORT_URL_TIMEOUT_MS,
+  MAX_IMPORT_BYTES,
+} from './constants.js';
 import { ValidationError } from '../../platform/errors.js';
+import type { CreateSkillInput, SkillAuthoring, UpdateSkillInput } from './types.js';
+import { isAllowedImportHost } from './domain.js';
 
-export interface CreateSkillInput {
-  name: string;
-  description?: string;
-  type?: SkillType;
-  source?: SkillSource;
-  body: string;
-  enabled?: boolean;
-}
+export type { CreateSkillInput, UpdateSkillInput } from './types.js';
 
-export interface UpdateSkillInput {
-  name?: string;
-  description?: string;
-  type?: SkillType;
-  source?: SkillSource;
-  body?: string;
-  enabled?: boolean;
-}
 
-export class SkillsService {
+export class SkillsService implements SkillAuthoring {
   private repo: SkillsRepository;
 
-  constructor(container: Container) {
+  constructor(private container: Container) {
     this.repo = container.skillsRepo;
   }
 
   async list(workspaceId: string): Promise<Skill[]> {
     const rows = await this.repo.list(workspaceId);
-    return rows.map(toSkillDto);
+    const counts = await this.repo.agentCounts(workspaceId, rows.map((r) => r.id));
+    return rows.map((row) => toSkillDto(row, counts.get(row.id) ?? 0));
   }
 
   async get(workspaceId: string, id: string): Promise<Skill | undefined> {
     const row = await this.repo.getById(workspaceId, id);
-    return row ? toSkillDto(row) : undefined;
+    if (!row) return undefined;
+    const counts = await this.repo.agentCounts(workspaceId, [row.id]);
+    return toSkillDto(row, counts.get(row.id) ?? 0);
+  }
+
+  async versions(workspaceId: string, id: string): Promise<SkillVersion[] | undefined> {
+    const row = await this.repo.getById(workspaceId, id);
+    if (!row) return undefined;
+    const rows = await this.repo.versions(row.id);
+    return rows.map(toSkillVersionDto);
   }
 
   async create(workspaceId: string, input: CreateSkillInput): Promise<Skill> {
+    const verdict = await this.classify(workspaceId, input.body);
     const row = await this.repo.insert({
+      ...(verdict ? { modelLevel: verdict.level, modelReason: verdict.reason } : {}),
       workspaceId,
       name: input.name,
       description: input.description ?? '',
@@ -50,6 +65,7 @@ export class SkillsService {
       source: input.source ?? DEFAULT_SKILL_SOURCE,
       body: input.body,
       ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+      ...(input.evidenceFiles !== undefined ? { evidenceFiles: input.evidenceFiles } : {}),
     });
     return toSkillDto(row);
   }
@@ -59,17 +75,131 @@ export class SkillsService {
     id: string,
     patch: UpdateSkillInput,
   ): Promise<Skill | undefined> {
-    const row = await this.repo.update(workspaceId, id, patch);
+    const verdict =
+      patch.body === undefined ? null : await this.classify(workspaceId, patch.body);
+
+    if (patch.enabled === true) {
+      const existing = await this.repo.getById(workspaceId, id);
+      if (!existing) return undefined;
+      const bodyChanged = patch.body !== undefined && patch.body !== existing.body;
+      assertUsable(
+        bodyChanged
+          ? {
+              threatLevel: worseThreat(
+                scanSkillBody(patch.body!).level,
+                verdict?.level ?? 'unknown',
+              ),
+              threatAcceptedAt: null,
+            }
+          : existing,
+      );
+    }
+    const row = await this.repo.update(workspaceId, id, {
+      ...patch,
+      ...(verdict ? { modelLevel: verdict.level, modelReason: verdict.reason } : {}),
+    });
     return row ? toSkillDto(row) : undefined;
+  }
+
+  async acceptRisk(workspaceId: string, id: string, userId: string): Promise<Skill | undefined> {
+    const row = await this.repo.acceptThreat(workspaceId, id, userId);
+    if (!row) return undefined;
+    const counts = await this.repo.agentCounts(workspaceId, [row.id]);
+    return toSkillDto(row, counts.get(row.id) ?? 0);
+  }
+
+  private async classify(workspaceId: string, body: string): Promise<ModelVerdict | null> {
+    try {
+      const { provider, model } = await this.container.featureModel(workspaceId, 'skill_scan');
+      const llm = await this.container.llm(provider);
+      return await withDeadline(classifySkillBody(body, llm, model), SCAN_DEADLINE_MS);
+    } catch {
+      return null;
+    }
+  }
+
+  async importUrlPreview(workspaceId: string, url: string): Promise<SkillImportPreview> {
+    const resolved = resolveImportUrl(url);
+    if (!resolved.ok) {
+      throw new ValidationError(refusalMessage(resolved.reason), {
+        field: 'url',
+        rule: resolved.reason,
+      });
+    }
+
+    const document = await this.container.documentFetcher.fetch(resolved.value.url, {
+      allowHost: isAllowedImportHost,
+      maxBytes: IMPORT_URL_MAX_BYTES,
+      maxRedirects: IMPORT_URL_MAX_REDIRECTS,
+      timeoutMs: IMPORT_URL_TIMEOUT_MS,
+    });
+
+    assertTextDocument(document.contentType);
+
+    return this.withModelVerdict(
+      workspaceId,
+      parseSkillImport(resolved.value.filename, new TextEncoder().encode(document.text)),
+    );
+  }
+
+  async restore(workspaceId: string, id: string, version: number): Promise<Skill | undefined> {
+    const row = await this.repo.getById(workspaceId, id);
+    if (!row) return undefined;
+
+    const body = await this.repo.versionBody(row.id, version);
+    if (body === undefined) {
+      throw new ValidationError('That version does not exist for this skill', {
+        field: 'version',
+        version,
+      });
+    }
+
+    const updated = await this.repo.update(workspaceId, id, { body });
+    if (!updated) return undefined;
+    const counts = await this.repo.agentCounts(workspaceId, [updated.id]);
+    return toSkillDto(updated, counts.get(updated.id) ?? 0);
   }
 
   async delete(workspaceId: string, id: string): Promise<boolean> {
     return this.repo.deleteById(workspaceId, id);
   }
 
-  importPreview(filename: string, contentBase64: string): SkillImportPreview {
-    return parseSkillImport(filename, decodeBase64(contentBase64));
+  async importPreview(
+    workspaceId: string,
+    filename: string,
+    contentBase64: string,
+  ): Promise<SkillImportPreview> {
+    return this.withModelVerdict(workspaceId, parseSkillImport(filename, decodeBase64(contentBase64)));
   }
+
+  private async withModelVerdict(
+    workspaceId: string,
+    preview: SkillImportPreview,
+  ): Promise<SkillImportPreview> {
+    const verdict = await this.classify(workspaceId, preview.body);
+    if (!verdict) return preview;
+    return { ...preview, threat_level: worseThreat(preview.threat_level, verdict.level) };
+  }
+}
+
+async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  try {
+    return await Promise.race([work, deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function assertUsable(row: { threatLevel: SkillThreatLevel; threatAcceptedAt: Date | null }): void {
+  if (!isBlockedFromModel({ level: row.threatLevel, acceptedAt: row.threatAcceptedAt })) return;
+  throw new ValidationError(
+    'This skill contains prompt-injection patterns. Edit the body, or accept the risk explicitly, before using it.',
+    { rule: 'threat_not_accepted', threat_level: row.threatLevel },
+  );
 }
 
 function decodeBase64(contentBase64: string): Uint8Array {
@@ -83,4 +213,16 @@ function decodeBase64(contentBase64: string): Uint8Array {
 
 function base64LengthFor(bytes: number): number {
   return Math.ceil(bytes / 3) * 4 + 4;
+}
+
+const TEXT_MEDIA_TYPES = new Set(['text/plain', 'text/markdown', 'text/x-markdown']);
+
+function assertTextDocument(contentType: string | null | undefined): void {
+  if (contentType === null || contentType === undefined) return;
+  const mediaType = contentType.split(';')[0]!.trim().toLowerCase();
+  if (mediaType === '' || TEXT_MEDIA_TYPES.has(mediaType)) return;
+  throw new ValidationError(
+    `That address answered with ${mediaType}, not a Markdown or plain-text document.`,
+    { field: 'url', rule: 'content_type' },
+  );
 }

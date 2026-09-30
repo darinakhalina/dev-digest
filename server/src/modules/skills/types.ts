@@ -1,0 +1,51 @@
+import type {
+  Skill,
+  SkillImportPreview,
+  SkillSource,
+  SkillType,
+  SkillVersion,
+} from '@devdigest/shared';
+
+export interface CreateSkillInput {
+  name: string;
+  description?: string;
+  type?: SkillType;
+  source?: SkillSource;
+  body: string;
+  enabled?: boolean;
+  evidenceFiles?: string[];
+}
+
+export interface UpdateSkillInput {
+  name?: string;
+  description?: string;
+  type?: SkillType;
+  source?: SkillSource;
+  body?: string;
+  enabled?: boolean;
+}
+
+export interface ImportUrlInput {
+  url: string;
+}
+
+export interface SkillAuthoring {
+  list(workspaceId: string): Promise<Skill[]>;
+  get(workspaceId: string, id: string): Promise<Skill | undefined>;
+  create(workspaceId: string, input: CreateSkillInput): Promise<Skill>;
+  update(
+    workspaceId: string,
+    id: string,
+    patch: UpdateSkillInput,
+  ): Promise<Skill | undefined>;
+  delete(workspaceId: string, id: string): Promise<boolean>;
+  versions(workspaceId: string, id: string): Promise<SkillVersion[] | undefined>;
+  restore(workspaceId: string, id: string, version: number): Promise<Skill | undefined>;
+  importPreview(
+    workspaceId: string,
+    filename: string,
+    contentBase64: string,
+  ): Promise<SkillImportPreview>;
+  importUrlPreview(workspaceId: string, url: string): Promise<SkillImportPreview>;
+  acceptRisk(workspaceId: string, id: string, userId: string): Promise<Skill | undefined>;
+}

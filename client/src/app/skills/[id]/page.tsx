@@ -1,9 +1,6 @@
-"use client";
+import { SkillsView } from "../_components/SkillsView";
 
-import { useParams } from "next/navigation";
-import { SkillEditor } from "./_components/SkillEditor";
-
-export default function SkillEditorPage() {
-  const { id } = useParams<{ id: string }>();
-  return <SkillEditor skillId={id} />;
+export default async function SkillPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <SkillsView selectedId={id} />;
 }

@@ -6,13 +6,14 @@ import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
 import { SkillsService } from './service.js';
+import { MAX_SKILL_BODY_CHARS } from './constants.js';
 
 const CreateSkillBody = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   type: SkillType.optional(),
   source: SkillSource.optional(),
-  body: z.string().min(1),
+  body: z.string().min(1).max(MAX_SKILL_BODY_CHARS),
   enabled: z.boolean().optional(),
 });
 
@@ -21,13 +22,25 @@ const UpdateSkillBody = z.object({
   description: z.string().optional(),
   type: SkillType.optional(),
   source: SkillSource.optional(),
-  body: z.string().min(1).optional(),
+  body: z.string().min(1).max(MAX_SKILL_BODY_CHARS).optional(),
   enabled: z.boolean().optional(),
+});
+
+const RestoreSkillBody = z.object({
+  version: z.number().int().positive(),
 });
 
 const ImportSkillBody = z.object({
   filename: z.string().min(1),
   content_base64: z.string().min(1),
+});
+
+const ImportSkillUrlBody = z.object({
+  url: z.string().min(1).max(2048),
+});
+
+const AcceptRiskBody = z.object({
+  accepted: z.literal(true),
 });
 
 /**
@@ -55,9 +68,25 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
   });
 
   app.post('/skills/import', { schema: { body: ImportSkillBody } }, async (req) => {
-    await getContext(app.container, req);
-    return service.importPreview(req.body.filename, req.body.content_base64);
+    const { workspaceId } = await getContext(app.container, req);
+    return service.importPreview(workspaceId, req.body.filename, req.body.content_base64);
   });
+
+  app.post('/skills/import-url', { schema: { body: ImportSkillUrlBody } }, async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    return service.importUrlPreview(workspaceId, req.body.url);
+  });
+
+  app.post(
+    '/skills/:id/accept-risk',
+    { schema: { params: IdParams, body: AcceptRiskBody } },
+    async (req) => {
+      const { workspaceId, userId } = await getContext(app.container, req);
+      const skill = await service.acceptRisk(workspaceId, req.params.id, userId);
+      if (!skill) throw new NotFoundError('Skill not found');
+      return skill;
+    },
+  );
 
   app.get('/skills/:id', { schema: { params: IdParams } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);
@@ -65,6 +94,24 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     if (!skill) throw new NotFoundError('Skill not found');
     return skill;
   });
+
+  app.get('/skills/:id/versions', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    const versions = await service.versions(workspaceId, req.params.id);
+    if (!versions) throw new NotFoundError('Skill not found');
+    return versions;
+  });
+
+  app.post(
+    '/skills/:id/restore',
+    { schema: { params: IdParams, body: RestoreSkillBody } },
+    async (req) => {
+      const { workspaceId } = await getContext(app.container, req);
+      const skill = await service.restore(workspaceId, req.params.id, req.body.version);
+      if (!skill) throw new NotFoundError('Skill not found');
+      return skill;
+    },
+  );
 
   app.put('/skills/:id', { schema: { params: IdParams, body: UpdateSkillBody } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);

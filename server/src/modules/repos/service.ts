@@ -39,6 +39,10 @@ export class RepoService implements RepoAccess {
     return this.repo.list(workspaceId);
   }
 
+  getById(workspaceId: string, id: string): Promise<RepoRow | undefined> {
+    return this.repo.getById(workspaceId, id);
+  }
+
   touchLastPolled(repoId: string): Promise<void> {
     return this.repo.touchLastPolled(repoId);
   }

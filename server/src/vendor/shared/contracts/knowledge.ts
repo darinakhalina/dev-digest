@@ -118,6 +118,29 @@ export type SkillType = z.infer<typeof SkillType>;
 export const SkillSource = z.enum(['manual', 'imported_url', 'extracted', 'community']);
 export type SkillSource = z.infer<typeof SkillSource>;
 
+export const SkillThreatLevel = z.enum(['unknown', 'safe', 'suspicious', 'dangerous']);
+export type SkillThreatLevel = z.infer<typeof SkillThreatLevel>;
+
+export const ImportSignalRule = z.enum([
+  'instruction_override',
+  'role_hijack',
+  'verdict_rigging',
+  'finding_suppression',
+  'delimiter_escape',
+  'secret_request',
+  'exfiltration',
+  'shell_block',
+  'hidden_characters',
+]);
+export type ImportSignalRule = z.infer<typeof ImportSignalRule>;
+
+export const ImportSignal = z.object({
+  rule: ImportSignalRule,
+  line: z.number().int().positive(),
+  excerpt: z.string(),
+});
+export type ImportSignal = z.infer<typeof ImportSignal>;
+
 export const Skill = z.object({
   id: z.string(),
   name: z.string(),
@@ -128,8 +151,21 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  agent_count: z.number().int().nullish(),
+  threat_level: SkillThreatLevel.default('unknown'),
+  threat_signals: z.array(ImportSignal).default([]),
+  threat_accepted_at: z.string().nullish(),
+  threat_reason: z.string().nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
+
+export const SkillVersion = z.object({
+  skill_id: z.string(),
+  version: z.number().int(),
+  body: z.string(),
+  created_at: z.string(),
+});
+export type SkillVersion = z.infer<typeof SkillVersion>;
 
 export const CommunitySkill = z.object({
   name: z.string(),
@@ -140,6 +176,9 @@ export const CommunitySkill = z.object({
 });
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
+export const SKILL_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+export const SkillName = z.string().min(1).max(64).regex(SKILL_NAME_RE);
+
 /** What an import proposes, before anything is stored. Never a stored skill. */
 export const SkillImportPreview = z.object({
   name: z.string(),
@@ -148,19 +187,10 @@ export const SkillImportPreview = z.object({
   source: SkillSource,
   body: z.string(),
   ignored_files: z.array(z.string()),
+  signals: z.array(ImportSignal).default([]),
+  threat_level: SkillThreatLevel.default('unknown'),
 });
 export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
-
-// ---- Conventions ----
-export const ConventionCandidate = z.object({
-  id: z.string(),
-  rule: z.string(),
-  evidence_path: z.string(),
-  evidence_snippet: z.string(),
-  confidence: z.number().min(0).max(1),
-  accepted: z.boolean(),
-});
-export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
 
 // ---- Agents ----
 // 'openrouter' routes through the OpenAI-compatible API (OpenAIProvider with a
@@ -199,6 +229,9 @@ export const Agent = z.object({
   // Inject repo-intel context (repo skeleton + callers + rank note) into this
   // agent's review prompt. Default on; gated again by the global flag.
   repo_intel: z.boolean().default(true),
+  // How many skills are attached to this agent. Read-only, computed per request
+  // from `agent_skills`; nullish because a caller that never joins may omit it.
+  skill_count: z.number().int().nullish(),
 });
 export type Agent = z.infer<typeof Agent>;
 
@@ -233,3 +266,76 @@ export const AgentVersion = z.object({
   created_at: z.string(),
 });
 export type AgentVersion = z.infer<typeof AgentVersion>;
+
+// ---- Conventions ----
+export const ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionStatus = z.infer<typeof ConventionStatus>;
+
+export const ConventionCandidate = z.object({
+  id: z.string(),
+  scan_id: z.string(),
+  category: z.string(),
+  rule: z.string(),
+  evidence_path: z.string(),
+  evidence_start_line: z.number().int(),
+  evidence_end_line: z.number().int(),
+  evidence_snippet: z.string(),
+  confidence: z.number().min(0).max(1),
+  status: ConventionStatus,
+});
+export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+export const ConventionScan = z.object({
+  id: z.string(),
+  repo_id: z.string(),
+  sample_file_count: z.number().int(),
+  discarded_count: z.number().int(),
+  indexed: z.boolean(),
+  source_sha: z.string(),
+  provider: Provider,
+  model: z.string(),
+  tokens_in: z.number().int().nullable(),
+  tokens_out: z.number().int().nullable(),
+  cost_usd: z.number().nullable(),
+  created_at: z.string(),
+});
+export type ConventionScan = z.infer<typeof ConventionScan>;
+
+export const ConventionsList = z.object({
+  scan: ConventionScan.nullable(),
+  candidates: z.array(ConventionCandidate),
+});
+export type ConventionsList = z.infer<typeof ConventionsList>;
+
+export const UpdateConventionRequest = z
+  .object({
+    status: ConventionStatus.optional(),
+    rule: z.string().min(1).max(500).optional(),
+  })
+  .refine((v) => v.status !== undefined || v.rule !== undefined, {
+    message: 'Provide a status, a rule, or both',
+  });
+export type UpdateConventionRequest = z.infer<typeof UpdateConventionRequest>;
+
+export const ConventionSkillProposal = z.object({
+  name: z.string(),
+  description: z.string(),
+  body: z.string(),
+});
+export type ConventionSkillProposal = z.infer<typeof ConventionSkillProposal>;
+
+export const ConventionSkillProposalRequest = z.object({
+  convention_ids: z.array(z.string().uuid()).min(1),
+  name: SkillName.optional(),
+});
+export type ConventionSkillProposalRequest = z.infer<typeof ConventionSkillProposalRequest>;
+
+export const CreateSkillFromConventionsRequest = z.object({
+  convention_ids: z.array(z.string().uuid()).min(1),
+  name: SkillName,
+  description: z.string().min(1),
+  type: SkillType.default('convention'),
+  enabled: z.boolean().default(false),
+  body: z.string().min(1),
+});
+export type CreateSkillFromConventionsRequest = z.infer<typeof CreateSkillFromConventionsRequest>;

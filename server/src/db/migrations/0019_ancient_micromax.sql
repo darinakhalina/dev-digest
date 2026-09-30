@@ -1,0 +1,1 @@
+DROP INDEX "skills_threat_idx";

@@ -29,11 +29,18 @@ import { SkillsRepository } from '../modules/skills/repository.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import type { RepoAccess } from '../modules/repos/types.js';
+import type { SkillAuthoring } from '../modules/skills/types.js';
+import { SkillsService } from '../modules/skills/service.js';
+import { ConventionsRepository } from '../modules/conventions/repository.js';
+import { resolveFeatureModel } from '../modules/settings/feature-models.js';
+import type { FeatureModelChoice, FeatureModelId } from '@devdigest/shared';
 import { RepoService } from '../modules/repos/service.js';
 import type { PullsSync } from '../modules/pulls/types.js';
 import { PullsService } from '../modules/pulls/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import type { DocumentFetcher } from '@devdigest/shared/adapters';
+import { HttpDocumentFetcher } from '../adapters/http/document-fetcher.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -54,6 +61,8 @@ export interface ContainerOverrides {
   /** repo-intel facade (T1.1+) — tests inject mock RepoIntel implementations. */
   repoIntel?: RepoIntel;
   repos?: RepoAccess;
+  skills?: SkillAuthoring;
+  documentFetcher?: DocumentFetcher;
   pulls?: PullsSync;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
@@ -80,6 +89,9 @@ export class Container {
   private _agentsRepo?: AgentsRepository;
   private _reviewRepo?: ReviewRepository;
   private _skillsRepo?: SkillsRepository;
+  private _documentFetcher?: DocumentFetcher;
+  private _skills?: SkillAuthoring;
+  private _conventionsRepo?: ConventionsRepository;
   private _repoIntel?: RepoIntel;
   private _repos?: RepoAccess;
   private _pulls?: PullsSync;
@@ -112,6 +124,24 @@ export class Container {
 
   get skillsRepo(): SkillsRepository {
     return (this._skillsRepo ??= new SkillsRepository(this.db));
+  }
+
+  get documentFetcher(): DocumentFetcher {
+    if (this.overrides.documentFetcher) return this.overrides.documentFetcher;
+    return (this._documentFetcher ??= new HttpDocumentFetcher());
+  }
+
+  get skills(): SkillAuthoring {
+    if (this.overrides.skills) return this.overrides.skills;
+    return (this._skills ??= new SkillsService(this));
+  }
+
+  get conventionsRepo(): ConventionsRepository {
+    return (this._conventionsRepo ??= new ConventionsRepository(this.db));
+  }
+
+  featureModel(workspaceId: string, id: FeatureModelId): Promise<FeatureModelChoice> {
+    return resolveFeatureModel(this, workspaceId, id);
   }
 
   get codeIndex(): CodeIndex {

@@ -4,9 +4,15 @@ import { eq } from 'drizzle-orm';
 import { strToU8, zipSync } from 'fflate';
 import { startPg, dockerAvailable, type PgFixture } from './helpers/pg.js';
 import { buildApp } from '../src/app.js';
+import { MockLLMProvider } from '../src/adapters/mocks.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';
+
+const scanLlm = new MockLLMProvider('openai', {
+  structuredBySchema: { SkillSafetyScan: { threat_level: 'safe', reason: 'r' } },
+});
+const scanOverrides = { openai: scanLlm, anthropic: scanLlm, openrouter: scanLlm };
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -27,7 +33,7 @@ d('skills CRUD + import — SPEC-2026-09-26-agent-skills', () => {
   beforeAll(async () => {
     pg = await startPg();
     await seed(pg.handle.db);
-    app = await buildApp({ config: config(), db: pg.handle.db });
+    app = await buildApp({ config: config(), db: pg.handle.db, overrides: { llm: scanOverrides } });
     await app.ready();
     const [own] = await pg.handle.db.select().from(t.workspaces);
     ownWorkspaceId = own!.id;

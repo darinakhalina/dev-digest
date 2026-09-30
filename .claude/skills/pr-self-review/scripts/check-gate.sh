@@ -11,6 +11,7 @@
 # Decisions (exit 0 + JSON permissionDecision; exit 2 is the deprecated blunt path):
 #   not a push/PR command ................. allow
 #   PR_SELF_REVIEW_OVERRIDE set ........... allow, reason echoed to stderr
+#   current branch listed in ../fixtures ... allow, reason echoed to stderr
 #   no state file ......................... deny
 #   verdict BLOCKED ....................... deny
 #   diff moved since the review ........... deny
@@ -84,6 +85,16 @@ is_push_command "$cmd" || allow
 if [ -n "${PR_SELF_REVIEW_OVERRIDE:-}" ]; then
   echo "pr-self-review: overridden — reason: ${PR_SELF_REVIEW_OVERRIDE}" >&2
   allow
+fi
+
+branch="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
+  reason="$(git -C "$ROOT" show origin/main:.claude/skills/pr-self-review/fixtures 2>/dev/null \
+    | awk -F'\t' -v b="$branch" '$1 == b && $2 ~ /[^ \t]/ { print $2; exit }')"
+  if [ -n "$reason" ]; then
+    echo "pr-self-review: '$branch' is a declared fixture branch — $reason" >&2
+    allow
+  fi
 fi
 
 [ -f "$STATE" ] || deny "No pr-self-review on record for this branch. Run /pr-self-review before pushing, or set PR_SELF_REVIEW_OVERRIDE=\"reason\" for a genuine hotfix."

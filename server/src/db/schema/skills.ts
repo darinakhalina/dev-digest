@@ -5,11 +5,15 @@ import {
   integer,
   boolean,
   jsonb,
+  timestamp,
   index,
   primaryKey,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { now } from './_shared';
-import { workspaces } from './core';
+import { users, workspaces } from './core';
+import type { ImportSignal } from '../../vendor/shared/contracts/knowledge';
 
 export const skills = pgTable(
   'skills',
@@ -28,9 +32,26 @@ export const skills = pgTable(
     enabled: boolean('enabled').notNull().default(true),
     version: integer('version').notNull().default(1),
     evidenceFiles: jsonb('evidence_files').$type<string[]>(),
+    threatLevel: text('threat_level', {
+      enum: ['unknown', 'safe', 'suspicious', 'dangerous'],
+    })
+      .notNull()
+      .default('unknown'),
+    threatSignals: jsonb('threat_signals').$type<ImportSignal[]>(),
+    threatReason: text('threat_reason'),
+    threatAcceptedAt: timestamp('threat_accepted_at', { withTimezone: true }),
+    threatAcceptedBy: uuid('threat_accepted_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     createdAt: now(),
   },
-  (t) => ({ wsIdx: index('skills_ws_idx').on(t.workspaceId) }),
+  (t) => ({
+    wsIdx: index('skills_ws_idx').on(t.workspaceId),
+    threatLevelChk: check(
+      'skills_threat_level_chk',
+      sql`${t.threatLevel} in ('unknown', 'safe', 'suspicious', 'dangerous')`,
+    ),
+  }),
 );
 
 export const skillVersions = pgTable(

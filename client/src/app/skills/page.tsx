@@ -1,5 +1,5 @@
-import { SkillsListView } from "./_components/SkillsListView";
+import { SkillsView } from "./_components/SkillsView";
 
 export default function SkillsPage() {
-  return <SkillsListView />;
+  return <SkillsView />;
 }
