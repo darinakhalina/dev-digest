@@ -10,6 +10,7 @@ export interface SortableRowProps {
   id: string;
   handleLabel: string;
   dimmed?: boolean;
+  blocked?: boolean;
   draggable?: boolean;
   children: React.ReactNode;
 }
@@ -18,6 +19,7 @@ export function SortableRow({
   id,
   handleLabel,
   dimmed = false,
+  blocked = false,
   draggable = true,
   children,
 }: SortableRowProps) {
@@ -30,7 +32,8 @@ export function SortableRow({
     <li
       ref={setNodeRef}
       style={{
-        ...s.attachedRow(isDragging, false, dimmed),
+        ...s.attachedRow(isDragging, dimmed),
+        ...(blocked ? s.blockedRow : null),
         transform: CSS.Transform.toString(transform),
         transition,
       }}

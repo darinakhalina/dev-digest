@@ -60,6 +60,10 @@ export function SkillsTab({ agentId }: { agentId: string }) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  React.useEffect(() => () => {
+    document.body.style.cursor = "";
+  }, []);
+
   if (skillsLoading || linksLoading) return <Skeleton height={220} />;
 
   const all = skills ?? [];
@@ -88,7 +92,9 @@ export function SkillsTab({ agentId }: { agentId: string }) {
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveId(null);
     document.body.style.cursor = "";
-    const next = resolveDrop(attachedIds, String(active.id), over ? String(over.id) : null);
+    const dragged = active.rect.current.translated;
+    const below = !!over && !!dragged && dragged.top > over.rect.top;
+    const next = resolveDrop(attachedIds, String(active.id), over ? String(over.id) : null, below);
     if (next) apply(next);
   };
 
@@ -187,6 +193,7 @@ export function SkillsTab({ agentId }: { agentId: string }) {
                   key={skill.id}
                   id={skill.id}
                   draggable={!threat.isBlocked}
+                  blocked={threat.isBlocked}
                   handleLabel={tAgents("skills.dragHandle", { name: skill.name })}
                 >
                   <span style={s.name}>{skill.name}</span>

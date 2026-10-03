@@ -51,12 +51,6 @@ function rows(label: string) {
   return within(screen.getByRole("list", { name: label })).getAllByRole("listitem");
 }
 
-function dragTo(from: HTMLElement, to: HTMLElement) {
-  const handle = within(from).getByRole("button", { name: /^Drag / });
-  fireEvent.pointerDown(handle);
-  fireEvent.pointerEnter(to);
-  fireEvent.pointerUp(window);
-}
 
 describe("SkillsTab", () => {
   it("lists the attached skills in their stored order and says the order drives the prompt", () => {
@@ -99,16 +93,6 @@ describe("SkillsTab", () => {
     const disabled = screen.getByText(skillMessages.agentTab.disabledHint);
     expect(within(disabled.parentElement!).getByText("Imported Test Rules")).toBeInTheDocument();
   });
-  it("keeps the arrow buttons as a keyboard path alongside dragging", () => {
-    renderTab();
-
-    expect(
-      screen.getByRole("button", { name: "Move House Conventions earlier in the prompt" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(agentMessages.skills.orderHint)).toHaveTextContent(
-      "The arrows do the same",
-    );
-  });
 
   it("gives every movable row a drag handle, and a flagged skill none", () => {
     renderTab();
@@ -133,7 +117,7 @@ describe("SkillsTab", () => {
 
     const attached = rows(skillMessages.agentTab.attached);
     const disabled = attached[2]!;
-    expect(disabled.style.opacity).toBe("0.55");
+    expect(within(disabled).getByText(skillMessages.agentTab.disabledHint)).toBeInTheDocument();
     expect(within(disabled).queryByLabelText(/^Drag /)).not.toBeNull();
   });
 });

@@ -25,6 +25,7 @@ export function resolveDrop(
   attachedIds: string[],
   activeId: string,
   overId: string | null,
+  below = false,
 ): string[] | null {
   if (!overId || activeId === overId) return null;
 
@@ -39,7 +40,7 @@ export function resolveDrop(
   }
 
   if (!intoAttached) return null;
-  const at = overIndex === -1 ? attachedIds.length : overIndex;
+  const at = overIndex === -1 ? attachedIds.length : overIndex + (below ? 1 : 0);
   const next = [...attachedIds];
   next.splice(at, 0, activeId);
   return next;

@@ -26,6 +26,15 @@ describe("resolveDrop — what a finished drag means", () => {
     expect(resolveDrop(ATTACHED, "x", ATTACHED_ZONE)).toEqual(["a", "b", "c", "x"]);
   });
 
+  it("inserts after the target when the drag came from above it", () => {
+    expect(resolveDrop(ATTACHED, "x", "c", true)).toEqual(["a", "b", "c", "x"]);
+    expect(resolveDrop(ATTACHED, "x", "a", true)).toEqual(["a", "x", "b", "c"]);
+  });
+
+  it("changes nothing when an already attached row is released on the list background", () => {
+    expect(resolveDrop(ATTACHED, "b", ATTACHED_ZONE)).toBeNull();
+  });
+
   it("detaches when an attached row is dropped on the available list", () => {
     expect(resolveDrop(ATTACHED, "b", AVAILABLE_ZONE)).toEqual(["a", "c"]);
     expect(resolveDrop(ATTACHED, "b", "x")).toEqual(["a", "c"]);

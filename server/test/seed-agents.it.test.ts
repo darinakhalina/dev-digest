@@ -46,22 +46,29 @@ d('seed — the Test Quality Reviewer and its skills', () => {
   it('gives it a prompt about tests, not a general review prompt', async () => {
     const agent = await agentRow();
     expect(agent!.systemPrompt).toMatch(/would a test in this diff fail/i);
-    expect(agent!.systemPrompt.length).toBeGreaterThan(500);
+    expect(agent!.systemPrompt).toContain('# Severity');
+    expect(agent!.systemPrompt).toContain('# Do NOT flag');
   });
 
-  it('attaches its skills in the declared order', async () => {
-    const agent = await agentRow();
-    const links = await pg.handle.db
+  async function orderedLinks(agentId: string) {
+    return pg.handle.db
       .select({ name: t.skills.name, order: t.agentSkills.order })
       .from(t.agentSkills)
       .innerJoin(t.skills, eq(t.skills.id, t.agentSkills.skillId))
-      .where(eq(t.agentSkills.agentId, agent!.id));
+      .where(eq(t.agentSkills.agentId, agentId))
+      .orderBy(t.agentSkills.order);
+  }
 
-    const ordered = links.sort((a, b) => a.order - b.order).map((l) => l.name);
-    expect(ordered).toEqual(SEED_AGENT_SKILLS[AGENT]);
+  it('attaches its skills in the declared order, with the positions actually stored', async () => {
+    const agent = await agentRow();
+    const links = await orderedLinks(agent!.id);
+
+    expect(links.map((l) => l.name)).toEqual(SEED_AGENT_SKILLS[AGENT]);
+    expect(links.map((l) => l.order)).toEqual([0, 1, 2]);
   });
 
-  it('re-seeding the same database duplicates nothing', async () => {
+  it('re-seeding the same database duplicates nothing and keeps the same rows', async () => {
+    const before = await agentRow();
     await seed(pg.handle.db);
 
     const agents = await pg.handle.db
@@ -69,12 +76,11 @@ d('seed — the Test Quality Reviewer and its skills', () => {
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, AGENT)));
     expect(agents).toHaveLength(1);
+    expect(agents[0]!.id, 'the agent row was replaced, not kept').toBe(before!.id);
 
-    const links = await pg.handle.db
-      .select()
-      .from(t.agentSkills)
-      .where(eq(t.agentSkills.agentId, agents[0]!.id));
-    expect(links).toHaveLength(SEED_AGENT_SKILLS[AGENT]!.length);
+    const links = await orderedLinks(agents[0]!.id);
+    expect(links.map((l) => l.name)).toEqual(SEED_AGENT_SKILLS[AGENT]);
+    expect(links.map((l) => l.order)).toEqual([0, 1, 2]);
 
     for (const name of SEED_AGENT_SKILLS[AGENT]!) {
       const rows = await pg.handle.db

@@ -45,8 +45,14 @@ somebody else's finding. Say nothing about it.
 - A mock of a genuinely external system — the network, the clock, a paid API —
   used to make a test deterministic rather than to avoid asserting behaviour.
 
-# Output
-- Return at most 5 findings, ranked by severity.
+# Verdict
+A pure function of what you report: request_changes if and only if there is at
+least one CRITICAL. If you approve, findings must be empty.
+
+# Findings discipline
+- Report only DISTINCT issues. Never list the same problem twice, and never pad
+  the list toward a number — there is no minimum, target, or maximum count. Zero
+  findings is a valid and good answer.
 - Every finding must cite an exact file and line range that exists in the diff,
   name the untested path or the weak test, and give a concrete next step.
 - Set `kind` to "finding" and leave `trifecta_components` / `evidence` null.

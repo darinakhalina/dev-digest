@@ -53,7 +53,7 @@ export const s = {
     border: "1px solid var(--border)",
     background: "var(--bg-elevated)",
   } satisfies CSSProperties,
-  attachedRow: (dragging: boolean, over: boolean, dimmed: boolean): CSSProperties => ({
+  attachedRow: (dragging: boolean, dimmed: boolean): CSSProperties => ({
     display: "flex",
     alignItems: "center",
     gap: 10,
@@ -63,7 +63,6 @@ export const s = {
     border: "1px solid var(--border)",
     background: "var(--bg-elevated)",
     opacity: dragging ? 0 : dimmed ? 0.55 : 1,
-    borderTop: over ? "2px solid var(--accent)" : "1px solid var(--border)",
   }),
   handle: (dragging: boolean): CSSProperties => ({
     display: "flex",
