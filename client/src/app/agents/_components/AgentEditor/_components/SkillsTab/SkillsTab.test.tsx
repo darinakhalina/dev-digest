@@ -9,6 +9,7 @@ const SKILLS: Skill[] = [
   { id: "sk1", name: "Severity Rubric", description: "", type: "rubric", source: "manual", body: "a", enabled: true, version: 1, threat_level: "safe", threat_signals: [] },
   { id: "sk2", name: "House Conventions", description: "", type: "convention", source: "manual", body: "b", enabled: true, version: 1, threat_level: "safe", threat_signals: [] },
   { id: "sk3", name: "Imported Test Rules", description: "", type: "custom", source: "imported_url", body: "c", enabled: false, version: 1, threat_level: "safe", threat_signals: [] },
+  { id: "sk4", name: "Hijacked Rules", description: "", type: "custom", source: "imported_url", body: "d", enabled: false, version: 1, threat_level: "dangerous", threat_signals: [], threat_accepted_at: null },
 ];
 
 const LINKS: AgentSkillLink[] = [
@@ -43,7 +44,18 @@ function attachedNames(): string[] {
   const list = screen.getByRole("list", { name: skillMessages.agentTab.attached });
   return within(list)
     .getAllByRole("listitem")
-    .map((row) => row.children[1]!.textContent ?? "");
+    .map((row) => row.children[2]!.textContent ?? "");
+}
+
+function rows(label: string) {
+  return within(screen.getByRole("list", { name: label })).getAllByRole("listitem");
+}
+
+function dragTo(from: HTMLElement, to: HTMLElement) {
+  const handle = within(from).getByRole("button", { name: /^Drag / });
+  fireEvent.pointerDown(handle);
+  fireEvent.pointerEnter(to);
+  fireEvent.pointerUp(window);
 }
 
 describe("SkillsTab", () => {
@@ -52,7 +64,7 @@ describe("SkillsTab", () => {
 
     expect(attachedNames()).toEqual(["Severity Rubric", "House Conventions"]);
     expect(screen.getByText(agentMessages.skills.orderHint)).toBeInTheDocument();
-    expect(screen.getByText("2 of 3 enabled")).toBeInTheDocument();
+    expect(screen.getByText("2 of 4 enabled")).toBeInTheDocument();
   });
 
   it("reorders an attached skill and sends the whole new order (AC-6)", () => {
@@ -86,5 +98,42 @@ describe("SkillsTab", () => {
 
     const disabled = screen.getByText(skillMessages.agentTab.disabledHint);
     expect(within(disabled.parentElement!).getByText("Imported Test Rules")).toBeInTheDocument();
+  });
+  it("keeps the arrow buttons as a keyboard path alongside dragging", () => {
+    renderTab();
+
+    expect(
+      screen.getByRole("button", { name: "Move House Conventions earlier in the prompt" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(agentMessages.skills.orderHint)).toHaveTextContent(
+      "The arrows do the same",
+    );
+  });
+
+  it("gives every movable row a drag handle, and a flagged skill none", () => {
+    renderTab();
+
+    const attached = rows(skillMessages.agentTab.attached);
+    for (const row of attached) {
+      expect(within(row).queryByLabelText(/^Drag /)).not.toBeNull();
+    }
+
+    const available = rows(skillMessages.agentTab.available);
+    const blocked = available.find((row) => row.textContent?.includes("Hijacked Rules"))!;
+    const movable = available.find((row) => row.textContent?.includes("Imported Test Rules"))!;
+    expect(within(blocked).queryByLabelText(/^Drag /)).toBeNull();
+    expect(within(blocked).queryByRole("button", { name: /^Attach / })).toBeNull();
+    expect(within(movable).queryByLabelText(/^Drag /)).not.toBeNull();
+  });
+
+  it("dims an attached skill that is disabled workspace-wide but keeps it movable", () => {
+    renderTab();
+
+    fireEvent.click(screen.getByRole("button", { name: "Attach Imported Test Rules" }));
+
+    const attached = rows(skillMessages.agentTab.attached);
+    const disabled = attached[2]!;
+    expect(disabled.style.opacity).toBe("0.55");
+    expect(within(disabled).queryByLabelText(/^Drag /)).not.toBeNull();
   });
 });

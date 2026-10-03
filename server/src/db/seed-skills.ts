@@ -158,8 +158,113 @@ somewhere to hang.
 - A missing bump when nothing in the diff is breaking.
 - Version files this diff does not touch — you cannot see what CI will do.`,
   },
+  {
+    name: 'test-coverage-nudge',
+    description:
+      'Flag a branch, error path or exported function this diff introduces that no test in the same diff reaches.',
+    type: 'custom',
+    source: 'manual',
+    enabled: true,
+    body: `# Untested paths introduced by this change
+
+A branch nobody exercises is a branch nobody has run. Report it only when the
+diff itself introduces the path AND the diff itself contains no test that
+reaches it.
+
+Report at WARNING. Raise to CRITICAL when the untested path decides money,
+authentication, authorisation, data deletion, or a security outcome.
+
+## Flag
+
+- A new \`if\` / \`else\` / \`switch\` arm whose alternate path no test covers.
+- A new exported function with no test case referencing it.
+- A reachable error path — \`catch\`, \`throw\`, early \`return\`, rejected promise —
+  that no test triggers.
+- A new HTTP route with no test that calls it.
+
+## Name the missing case, or say nothing
+
+A finding must state the input or state that would reach the path:
+"\`formatBytes(-1)\` reaches the guard at bytes.ts:12; no test passes a negative".
+"Add a test" without naming the case is not a finding.
+
+## Do NOT flag
+
+- Coverage of code this diff does not touch.
+- Generated files, migrations, type-only changes.
+- A missing end-to-end test when a unit test already reaches the branch.
+- A path that is unreachable from any public entry point.`,
+  },
+  {
+    name: 'mock-overreach',
+    description:
+      'Flag a test whose mocking removes the very behaviour the test claims to verify.',
+    type: 'custom',
+    source: 'manual',
+    enabled: true,
+    body: `# Mocking that hides what the test claims to check
+
+A mock is a tool for determinism, not a way to make a test pass. The question
+for every mock: if the real collaborator started returning something wrong,
+would this test notice?
+
+Report at WARNING.
+
+## Flag
+
+- Assertions that only confirm a mock was called — \`expect(fn).toHaveBeenCalled()\`
+  — when the value it returns is what the code under test actually uses.
+- A mock of the module under test itself, or of a pure helper it owns.
+- A stub whose fixture is shaped so the assertion cannot fail regardless of the
+  production code.
+- A mocked repository in a test whose stated subject is a query or a transaction.
+
+## Do NOT flag
+
+- A mock of a genuinely external system: the network, the clock, a paid API, a
+  third-party SDK.
+- A mock used to force an error path that is otherwise hard to produce.
+- Test doubles in a unit test whose subject is clearly the orchestration, not the
+  collaborator.
+- The number of mocks. Count is not the problem; what they conceal is.`,
+  },
+  {
+    name: 'flaky-test-patterns',
+    description:
+      'Flag a test that can fail without the production code changing — time, randomness, ordering or sleeps.',
+    type: 'custom',
+    source: 'manual',
+    enabled: true,
+    body: `# Tests that fail for reasons other than a bug
+
+A test that fails intermittently teaches the team to re-run CI instead of
+reading it. Report the pattern, not the symptom — the diff cannot show you a
+flake, only the shape that produces one.
+
+Report at WARNING.
+
+## Flag
+
+- A dependence on wall-clock time: \`Date.now()\`, \`new Date()\` without a fixed
+  clock, an assertion on elapsed milliseconds.
+- Randomness without a seed: \`Math.random()\`, \`crypto.randomUUID()\` in an
+  assertion rather than as an opaque identifier.
+- A \`sleep\` / \`setTimeout\` used to wait for something, where a condition could
+  be awaited instead.
+- Shared mutable state between tests: a module-level singleton written in one
+  test and read in another, a database row left behind.
+- An assertion on the ORDER of an unordered result — object keys, a query with
+  no \`ORDER BY\`, \`Promise.all\` results treated as sequential.
+
+## Do NOT flag
+
+- A fixed, frozen clock. That is the fix, not the problem.
+- A random value used only as an opaque id that nothing asserts on.
+- A timeout that bounds a test, rather than one that waits for a result.`,
+  },
 ];
 
 export const SEED_AGENT_SKILLS: Record<string, string[]> = {
   'API Contract Reviewer': ['breaking-change', 'response-schema', 'semver-discipline'],
+  'Test Quality Reviewer': ['test-coverage-nudge', 'mock-overreach', 'flaky-test-patterns'],
 };
