@@ -173,6 +173,13 @@ they constrain the REQUEST, not the response.
   reveal anything it learned about an address it declined to reach.
   *Check:* refusing a loopback address names the rule and reports nothing about whether a service
   was listening.
+- **AC-30** — The order of attached skills SHALL be changeable by dragging a row, and SHALL remain
+  changeable without a pointer. Removing the keyboard path is a regression, not a simplification.
+  *Check:* dragging a row to another position sends the whole new order and the list renumbers;
+  the arrow controls are still present and still reorder.
+- **AC-31** — An attached skill that is disabled workspace-wide SHALL still be reorderable, and
+  SHALL be rendered so that its exclusion from the prompt is visible.
+  *Check:* a disabled attached row drags like any other, and is dimmed relative to the enabled ones.
 
 ## Edge cases
 

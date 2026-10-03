@@ -96,6 +96,7 @@
     "title": "Skills",
     "enabledCount": "{linked} of {total} enabled",
     "filterPlaceholder": "Filter skills…",
-    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Toggle to attach."
+    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Drag a row by its handle to reorder, to attach, or to detach. The arrows do the same from the keyboard.",
+    "dragHandle": "Drag {name} to reorder or move it between lists"
   }
 }
